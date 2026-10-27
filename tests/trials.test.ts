@@ -1,0 +1,20 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { recordWindTrial } from "../src/trials.ts";
+import { fresh, parseSave } from "../src/state.ts";
+test("optional seals require both tasks in the same garden and cannot duplicate", () => {
+  const trials: string[] = [];
+  assert.equal(recordWindTrial(trials, 0, "rise"), false);
+  assert.equal(recordWindTrial(trials, 1, "turn"), false);
+  assert.equal(recordWindTrial(trials, 0, "turn"), true);
+  assert.equal(recordWindTrial(trials, 0, "rise"), false);
+  assert.equal(trials.filter((t) => t === "seal-0").length, 1);
+  const save = fresh();
+  save.trials = trials;
+  assert.deepEqual(parseSave(JSON.stringify(save))?.trials, trials);
+  const old: any = fresh();
+  delete old.trials;
+  assert.deepEqual(parseSave(JSON.stringify(old))?.trials, []);
+  old.trials = ["seal-999"];
+  assert.equal(parseSave(JSON.stringify(old)), null);
+});
