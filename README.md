@@ -6,7 +6,9 @@
 
 ![晨露庭院与安全开场](docs/media/opening.png)
 
-## v1.1.0 / ACTION-A
+## v1.2.0 / ACTION-A-DOLL-HIT
+
+本版包含 [ACTION-A 第五轮](docs/ACTION-A-ROUND5.md) 和 [ACTION-A-DOLL-HIT 分级受击 / 布娃娃击飞](docs/ACTION-A-DOLL-HIT.md)。主控受到不同攻击时会失衡、击飞、翻滚并起身；短暂失控后按空格或 Shift 可以受身。保留既有存档格式。详见 [版本说明](docs/RELEASE-v1.2.0.md)。
 
 新版接入自研 ACTION-A 分层骨骼动画，覆盖主控、苔影、玻璃蛾和露冠守卫。重制剑舞发力链、动作衔接与受击反应，保持现有玩法和存档兼容。
 

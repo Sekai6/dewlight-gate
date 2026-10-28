@@ -1,4 +1,5 @@
 import type { Bone, Clip, Track } from "./core";
+import type { SupportProfile } from "./balance";
 export type ActorKind = "hero" | "moss" | "moth" | "guardian";
 export const ACTIONS = [
   "idle",
@@ -28,6 +29,7 @@ export const ACTIONS = [
 ] as const;
 export type Action = (typeof ACTIONS)[number];
 export interface RigDefinition {
+  support: SupportProfile;
   bob: number;
   sway: number;
   lean: number;
@@ -255,6 +257,13 @@ export function createRig(kind: ActorKind): RigDefinition {
     });
   }
   return {
+    support: {
+      enabled: !moth,
+      shift: boss ? 6 : hero ? 3.5 : 4,
+      response: boss ? 10 : 18,
+      counterLean: boss ? 0.009 : 0.016,
+      lift: boss ? 10 : hero ? 12 : 8,
+    },
     bob: boss ? 3 : hero ? 2.7 : moth ? 1.8 : 2.1,
     sway: boss ? 2.4 : hero ? 1.1 : 2,
     lean: boss ? 0.22 : hero ? 0.19 : moth ? 0.12 : 0.28,
@@ -342,8 +351,8 @@ export function getClip(rig: Rig, action: Action): Clip {
       : [-0.2, 1.8, -0.8, -1.9, -2.3, -0.5, -0.2];
     const fore = [-0.4, -1.5, -0.3, 0.2, 0.8, 0.1, -0.4];
     const torso = up
-      ? [0, 0.32, -0.12, 0.36, -0.36, -0.12, 0]
-      : [0, -0.55, -0.06, 0.36, 0.55, 0.16, 0];
+      ? [0, 0.24, 0.12, -0.05, -0.3, -0.1, 0]
+      : [0, -0.32, -0.1, 0.2, 0.36, 0.12, 0];
     const airborne = action === "air-slash";
     const roll = airborne
       ? [0, -0.24, -0.08, 0.12, 0.28, 0.05, 0]
@@ -363,7 +372,7 @@ export function getClip(rig: Rig, action: Action): Clip {
         })),
       });
     timed("arm", "rotation", arm);
-    timed("arm", "x", [9, 5, 9, 14, 16, 11, 9]);
+    timed("arm", "x", [9, 7, 9, 12, 13, 10, 9]);
     timed("fore", "rotation", fore);
     timed(
       "weapon",
@@ -373,8 +382,14 @@ export function getClip(rig: Rig, action: Action): Clip {
     timed("root", "rotation", roll);
     timed("torso", "rotation", torso);
     timed("head", "rotation", [0, 0.12, 0.02, -0.1, -0.14, -0.05, 0]);
-    timed("hip", "x", up ? [0, -2, 0, 3, 4, 1, 0] : [0, -4, 0, 4, 6, 2, 0]);
-    timed("hip", "y", [-30, -27, -29, -30, up ? -33 : -28, -29, -30]);
+    timed("hip", "x", up ? [0, -2, 1, 3, 2, 0.5, 0] : [0, -3, 1, 4, 4, 1, 0]);
+    timed(
+      "hip",
+      "y",
+      up
+        ? [-30, -26, -28, -30, -33, -29, -30]
+        : [-30, -28, -29, -30, -29, -29, -30],
+    );
     timed("armBack", "rotation", [
       0.2,
       airborne ? -1.1 : up ? -0.6 : 0.9,
@@ -389,8 +404,8 @@ export function getClip(rig: Rig, action: Action): Clip {
       "rotation",
       [-0.3, -0.85, -0.6, -0.25, -0.4, -0.35, -0.3],
     );
-    timed("torso", "scaleY", [1, 0.86, 0.97, 1.12, 1.06, 0.94, 1]);
-    timed("torso", "scaleX", [1, 1.12, 1.03, 0.92, 0.96, 1.04, 1]);
+    timed("torso", "scaleY", [1, 0.94, 0.98, 1.04, 1.06, 0.98, 1]);
+    timed("torso", "scaleX", [1, 1.05, 1.02, 0.97, 0.96, 1.02, 1]);
     clip.events = [{ time: 0.065, name: "swing" }];
   } else if (action === "bind") {
     add("arm", "rotation", [-0.2, 1.1, -1.7, -1.5, -0.2]);
@@ -675,6 +690,23 @@ export function getClip(rig: Rig, action: Action): Clip {
     replace("head", "rotation", [0, 0.1, -0.12, -0.1, 0]);
   }
   if (hero && action === "dash") replace("hip", "x", [-2, 4, 5, 0]);
+  if (hero && (action === "brake" || action === "turn")) {
+    replace("hip", "y", [hip, hip + 3, hip + 2, hip]);
+    replace("hip", "x", [0, -2, -1, 0]);
+    replace("torso", "rotation", [-0.16, -0.12, 0.04, 0]);
+    replace("armBack", "rotation", [0.45, 0.7, 0.35, 0.2]);
+    replace("head", "rotation", [0.08, 0.04, -0.02, 0]);
+  }
+  if (hero && action === "launch") {
+    replace("hip", "y", [hip + 4, hip - 2, hip]);
+    replace("torso", "rotation", [0.12, -0.08, -0.04]);
+    replace("armBack", "rotation", [0.6, -0.85, -0.25]);
+  }
+  if (rig.kind === "moss" && action === "strike") {
+    replace("torso", "rotation", [0.32, 0.58, 0.5, 0.32]);
+    replace("hip", "y", [hip + 5, hip - 5, hip - 2, hip + 4]);
+    replace("torso", "scaleY", [0.93, 1.1, 1.04, 0.96]);
+  }
   // Continuous first derivatives through interior poses: momentum no longer
   // stops at every authored key. Contact and gameplay durations remain fixed.
   if (!["idle", "walk", "run", "bound"].includes(action))
