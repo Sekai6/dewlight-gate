@@ -1,5 +1,6 @@
 // The first guardian is a short duel: read the crown, dodge, punish recovery.
 // All deadlines use game time, so menus and browser blur freeze the encounter.
+import type { HitContext } from "./action-a/doll-hit/state";
 export type BossPhase =
   | "sleep"
   | "intro"
@@ -78,7 +79,7 @@ export function stepGuardian(
   now: number,
   dt: number,
   player: { x: number; y: number },
-): { damage: boolean; started: boolean } {
+): { damage: boolean; started: boolean; impact?: HitContext } {
   const change = (phase: BossPhase, duration: number) => {
     b.phase = phase;
     b.phaseAt = now;
@@ -86,6 +87,7 @@ export function stepGuardian(
   };
   let damage = false,
     started = false;
+  let impact: HitContext | undefined;
   if (b.phase === "defeated") return { damage, started };
   if (b.phase === "sleep") {
     if (
@@ -109,6 +111,13 @@ export function stepGuardian(
     ) {
       wave.hit = true;
       damage = true;
+      impact = {
+        kind: "wave",
+        sourceX: wave.x,
+        sourceY: b.y,
+        direction: wave.dir,
+        instance: `guardian:wave:${b.phaseAt}:${wave.dir}`,
+      };
     }
   }
   b.wave = b.wave.filter(
@@ -125,6 +134,13 @@ export function stepGuardian(
     ) {
       b.struck = true;
       damage = true;
+      impact = {
+        kind: "charge",
+        sourceX: b.x,
+        sourceY: b.y,
+        direction: b.facing,
+        instance: `guardian:charge:${b.phaseAt}`,
+      };
     }
     if (Math.abs(b.x - b.chargeEnd) < 1) change("recover", 2.0);
   }
@@ -161,5 +177,5 @@ export function stepGuardian(
       change("recover", 2.0);
     }
   }
-  return { damage, started };
+  return { damage, started, impact };
 }

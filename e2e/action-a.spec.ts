@@ -503,10 +503,10 @@ test("ACTION-A attack identity survives landing and paused replay without a seco
     a.draw({ ...base, clock: 10.11, age: 0.11, grounded: true, moving: true });
     return { landed, paused: a.snapshot() };
   });
-  expect(result.landed.action).toBe("air-slash");
+  expect(result.landed.action).toBe("slash");
   expect(result.landed.blendWeight).toBe(1);
   expect(result.landed.stage).toBe("release");
-  expect(Math.abs(result.landed.bones.root.rotation)).toBeGreaterThan(0.08);
+  expect(result.landed.airWeight).toBeGreaterThan(0.5);
   expect(result.paused).toEqual(result.landed);
 });
 

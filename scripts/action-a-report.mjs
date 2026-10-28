@@ -16,7 +16,7 @@ writeFileSync(
 <div class="pair"><section><h2>改造前</h2><video id="before" src="before/actions.webm" controls muted playsinline></video></section><section><h2>ACTION-A</h2><video id="after" src="after/actions.webm" controls muted playsinline></video></section></div>
 <p><label>同步跳转场景 <select id="chapter"><option value="0">主控 · 跑跳与战斗</option><option value="6">苔影 · 蓄势与扑击</option><option value="12">玻璃蛾 · 收翼与俯冲</option><option value="18">露冠守卫 · 冲锋与砸地</option></select></label></p>
 <section><h2>关键姿势图</h2><p>${["hero", "moss", "moth", "guardian"].map((k) => `<a href="sheets/${k}.png">${k}</a>`).join(" · ")}</p></section>
-<section><h2>性能与资源记录</h2><pre>${JSON.stringify(report, null, 2).replaceAll("<", "&lt;")}</pre></section>
+<section><h2>性能与资源记录</h2><pre>${JSON.stringify(report.comparison ?? report, null, 2).replaceAll("<", "&lt;")}</pre><a href="performance.json">performance.json</a></section>
 <script>const videos=[document.querySelector('#before'),document.querySelector('#after')];document.querySelector('#play').onclick=()=>{const paused=videos[0].paused;videos.forEach(v=>paused?v.play():v.pause());};document.querySelector('#reset').onclick=()=>videos.forEach(v=>v.currentTime=0);document.querySelector('#rate').onchange=e=>videos.forEach(v=>v.playbackRate=Number(e.target.value));document.querySelector('#chapter').onchange=e=>videos.forEach(v=>{v.pause();v.currentTime=Number(e.target.value);});</script>`,
 );
 console.log(`${root}/review.html`);

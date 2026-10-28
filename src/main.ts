@@ -19,6 +19,7 @@ import {
   GUARDIAN,
 } from "./boss";
 import { Effects } from "./effects";
+import { DollHitController, type HitContext } from "./action-a/doll-hit/state";
 import { drawMonument } from "./entities";
 import { CreatureDirector } from "./creature-art";
 import { hurtCreature, stepCreature, type Enemy } from "./creature";
@@ -285,7 +286,7 @@ function render() {
     !scene.arena
       ? `<aside class="quest-banner ${scene.clock - scene.guideChangedAt < 6 ? "unfurled" : "settled"}" aria-label="当前旅程目标"><div class="quest-wings" aria-hidden="true"><svg viewBox="0 0 300 36"><g fill="none" stroke="#dcd7ae" stroke-width=".8" opacity=".7"><path d="M20 26Q82 33 136 17M280 26Q218 33 164 17M40 27Q44 13 59 20Q49 29 40 27M70 26Q76 10 88 17Q82 27 70 26M101 22Q109 8 119 14Q114 22 101 22M260 27Q256 13 241 20Q251 29 260 27M230 26Q224 10 212 17Q218 27 230 26M199 22Q191 8 181 14Q186 22 199 22"/></g><path d="M150 4L159 16L150 29L141 16Z" fill="#bfe6d52e" stroke="#e8dfb6" stroke-width=".9"/><path d="M150 4V29M141 16H159" stroke="#d1ead4" stroke-width=".6" opacity=".7"/><circle cx="130" cy="19" r="1.5" fill="#ded9ab"/><circle cx="170" cy="19" r="1.5" fill="#ded9ab"/></svg></div><small>循光而行 · ${rooms[guide.room].name}</small><strong>${escapeHtml(guide.title)}</strong><div class="quest-detail">${escapeHtml(guide.detail)}</div><div class="quest-pips" aria-label="本庭灯环进度">${[0, 1, 2, 3].map((i) => `<i class="${save.lenses.includes(`lens-${guide.room}-${i}`) ? "lit" : ""}"></i>`).join("")}<span>Tab 查看邀约 · H 收起</span></div></aside>`
       : "";
-  const markup = `${guidance}<header class="topbar"><div class="brand">晨露之门<small>DEWLIGHT / GATE</small></div><div class="hud"><span class="hearts" aria-label="生命 ${hp} / 5">${Array.from({ length: 5 }, (_, i) => `<svg class="heart ${i < hp ? "full" : "empty"}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21C8 17 2 13 2 7.5C2 2 9 1 12 6C15 1 22 2 22 7.5C22 13 16 17 12 21Z"/></svg>`).join("")}</span><span>光能 <strong>${Math.floor(energy)}</strong><span class="energy"><i style="width:${energy}%"></i></span></span><span>◈ <strong>${save.beads.length.toString().padStart(2, "0")}</strong></span><span>石碑 <strong>${count}/3</strong></span><button class="iconbtn" data-action="pause" aria-label="暂停旅程">Ⅱ</button></div></header><div class="location"><span>THE DEWBOUND JOURNEY</span><b>${["晨露庭院", "玻璃阶地", "藤冠高台"][scene?.region ?? 0]}</b><p>${count === 3 ? "晨光已经归来，继续寻找遗漏的微光。" : `${rooms[Math.min(rooms.length - 1, Math.floor((scene?.x ?? 0) / ROOM_WIDTH))].name} · ${scene?.lensObjective ?? "寻找高处的棱镜"}`}</p></div><footer class="bottom"><div class="keys"><span><kbd>A D</kbd>移动 / C 慢行</span><span><kbd>SPACE</kbd>跳跃 / S+空格 下落</span><span><kbd>J</kbd>攻击</span><span><kbd class="dash-key" style="--ready:${dashReady * 100}%" title="${dashReady >= 1 ? "冲刺已就绪" : "冲刺恢复中"}">SHIFT</kbd>冲刺</span><span><kbd>K</kbd>束缚</span><span><kbd>E</kbd>交互</span><span><kbd>TAB</kbd>旅程</span><span><kbd>H</kbd>引导</span></div><div class="chapter">✧　让微小的光，带你向前</div></footer>${scene?.started && mode === "play" && (hp <= 2 || energy < 25) ? `<div class="resource-status" role="status">${hp <= 2 ? "生命偏低 · 石碑可休憩，Tab 可回检查点" : "光能恢复中 · 束缚需要 25 光能"}</div>` : ""}${scene?.started && mode === "play" && scene.clock - scene.pickupAt < 1.2 ? `<div class="pickup-note" aria-label="收集反馈">✧ +${scene.pickupCount} 玻璃珠</div>` : ""}${performance.now() < toastUntil ? `<div class="toast" role="status">${escapeHtml(toastText)}</div>` : ""}${panel ? `<div class="overlay"><section class="panel">${panel}<div class="settings"><label><input id="mute" type="checkbox" ${muted ? "checked" : ""}>静音</label><label>音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label><input id="motion" type="checkbox" ${reduced ? "checked" : ""}>减少动态效果</label><label><input id="guidance" type="checkbox" ${scene?.guideEnabled ? "checked" : ""}>寻路引导</label><label><input id="shake" type="checkbox" ${preferences.shake ? "checked" : ""}>镜头震动</label><label><input id="contrast" type="checkbox" ${preferences.contrast ? "checked" : ""}>清晰界面</label><label>画质 <select id="quality" aria-label="画质" ${graphicsBusy ? "disabled" : ""}><option value="soft" ${quality === "soft" ? "selected" : ""}>轻盈 · 兼容</option><option value="dream" ${quality === "dream" ? "selected" : ""}>绮梦 · 推荐</option><option value="webgpu" ${quality === "webgpu" ? "selected" : ""}>绮梦 · WebGPU</option></select></label><small class="graphics-status" role="status">${graphicsBusy ? "正在准备 WebGPU 光影…" : quality === "webgpu" ? "WebGPU 光影已启用 · 多重光晕与细微折射" : quality === "soft" ? "减少飘花、悬露与雾层，保留场景完整美术" : "完整花园层次与光效 · WebGPU 档需浏览器支持"}</small></div>${storageOK ? "" : '<div class="notice">浏览器无法保存进度，本次旅程仍可正常游玩。</div>'}</section></div>` : ""}`;
+  const markup = `${guidance}<header class="topbar"><div class="brand">晨露之门<small>DEWLIGHT / GATE</small></div><div class="hud"><span class="hearts" aria-label="生命 ${hp} / 5">${Array.from({ length: 5 }, (_, i) => `<svg class="heart ${i < hp ? "full" : "empty"}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21C8 17 2 13 2 7.5C2 2 9 1 12 6C15 1 22 2 22 7.5C22 13 16 17 12 21Z"/></svg>`).join("")}</span><span>光能 <strong>${Math.floor(energy)}</strong><span class="energy"><i style="width:${energy}%"></i></span></span><span>◈ <strong>${save.beads.length.toString().padStart(2, "0")}</strong></span><span>石碑 <strong>${count}/3</strong></span><button class="iconbtn" data-action="pause" aria-label="暂停旅程">Ⅱ</button></div></header><div class="location"><span>THE DEWBOUND JOURNEY</span><b>${["晨露庭院", "玻璃阶地", "藤冠高台"][scene?.region ?? 0]}</b><p>${count === 3 ? "晨光已经归来，继续寻找遗漏的微光。" : `${rooms[Math.min(rooms.length - 1, Math.floor((scene?.x ?? 0) / ROOM_WIDTH))].name} · ${scene?.lensObjective ?? "寻找高处的棱镜"}`}</p></div><footer class="bottom"><div class="keys"><span><kbd>A D</kbd>移动 / C 慢行</span><span><kbd>SPACE</kbd>跳跃 / S+空格 下落</span><span><kbd>J</kbd>攻击</span><span><kbd class="dash-key" style="--ready:${dashReady * 100}%" title="${dashReady >= 1 ? "冲刺已就绪" : "冲刺恢复中"}">SHIFT</kbd>冲刺</span><span><kbd>K</kbd>束缚</span><span><kbd>E</kbd>交互</span><span><kbd>TAB</kbd>旅程</span><span><kbd>H</kbd>引导</span></div><div class="chapter">${scene?.doll.state.active ? (scene.doll.state.recoverReady ? "\u7a7a\u683c / Shift \u00b7 \u53d7\u8eab" : "\u5931\u8861\u4e2d \u00b7 \u7a0d\u540e\u53ef\u53d7\u8eab") : "\u2727 \u8ba9\u5fae\u5c0f\u7684\u5149\uff0c\u5e26\u4f60\u5411\u524d"}</div></footer>${scene?.started && mode === "play" && (hp <= 2 || energy < 25) ? `<div class="resource-status" role="status">${hp <= 2 ? "生命偏低 · 石碑可休憩，Tab 可回检查点" : "光能恢复中 · 束缚需要 25 光能"}</div>` : ""}${scene?.started && mode === "play" && scene.clock - scene.pickupAt < 1.2 ? `<div class="pickup-note" aria-label="收集反馈">✧ +${scene.pickupCount} 玻璃珠</div>` : ""}${performance.now() < toastUntil ? `<div class="toast" role="status">${escapeHtml(toastText)}</div>` : ""}${panel ? `<div class="overlay"><section class="panel">${panel}<div class="settings"><label><input id="mute" type="checkbox" ${muted ? "checked" : ""}>静音</label><label>音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label><input id="motion" type="checkbox" ${reduced ? "checked" : ""}>减少动态效果</label><label><input id="guidance" type="checkbox" ${scene?.guideEnabled ? "checked" : ""}>寻路引导</label><label><input id="shake" type="checkbox" ${preferences.shake ? "checked" : ""}>镜头震动</label><label><input id="contrast" type="checkbox" ${preferences.contrast ? "checked" : ""}>清晰界面</label><label>画质 <select id="quality" aria-label="画质" ${graphicsBusy ? "disabled" : ""}><option value="soft" ${quality === "soft" ? "selected" : ""}>轻盈 · 兼容</option><option value="dream" ${quality === "dream" ? "selected" : ""}>绮梦 · 推荐</option><option value="webgpu" ${quality === "webgpu" ? "selected" : ""}>绮梦 · WebGPU</option></select></label><small class="graphics-status" role="status">${graphicsBusy ? "正在准备 WebGPU 光影…" : quality === "webgpu" ? "WebGPU 光影已启用 · 多重光晕与细微折射" : quality === "soft" ? "减少飘花、悬露与雾层，保留场景完整美术" : "完整花园层次与光效 · WebGPU 档需浏览器支持"}</small></div>${storageOK ? "" : '<div class="notice">浏览器无法保存进度，本次旅程仍可正常游玩。</div>'}</section></div>` : ""}`;
   ui.dataset.mode = mode;
   ui.dataset.motion = reduced ? "reduced" : "full";
   ui.dataset.contrast = preferences.contrast ? "high" : "normal";
@@ -305,6 +306,7 @@ function render() {
     });
     for (const selector of [
       ".location",
+      ".chapter",
       ".toast",
       ".quest-banner",
       ".pickup-note",
@@ -473,6 +475,19 @@ class Journey extends Phaser.Scene {
   bindTarget = { x: 0, y: 0 };
   hurtAt = -999;
   hitDirection = 0;
+  readonly doll = new DollHitController();
+  private hitSerial = 0;
+  get dollPose() {
+    return this.doll.state.active ? this.doll.state : null;
+  }
+  get dollFloor() {
+    if (!this.doll.state.active) return undefined;
+    let floor = Infinity;
+    for (const p of platforms)
+      if (this.x + 13 > p.x && this.x - 13 < p.x + p.w && p.y >= this.y - 9)
+        floor = Math.min(floor, p.y - this.y);
+    return floor;
+  }
   safe = { x: 130, y: GROUND_Y };
   onGround = false;
   groundIndex = -1;
@@ -495,6 +510,7 @@ class Journey extends Phaser.Scene {
   }
   guardianArt!: GuardianArt;
   resetAnimations() {
+    this.doll.reset();
     this.art?.reset();
     this.creatures?.actors.forEach((actor) => actor.reset());
     this.guardianArt?.actor.reset();
@@ -851,6 +867,7 @@ class Journey extends Phaser.Scene {
     render();
   }
   clearInput() {
+    this.doll.clearBuffer();
     this.pendingKeys.clear();
     // A suspended render loop can retain DOM events across both menu toggles.
     // Reset the manager queue as well as key state so old actions cannot replay.
@@ -1021,6 +1038,16 @@ class Journey extends Phaser.Scene {
   step(dt: number) {
     const now = this.clock;
     const previousX = this.x;
+    const locked = this.doll.state.active;
+    if (locked) {
+      const jump = this.pressed("SPACE"),
+        dash = this.pressed("SHIFT");
+      if (jump || dash) this.doll.requestRecovery();
+      this.pressed("J");
+      this.pressed("K");
+      this.pressed("E");
+      this.doll.tick(dt, this.onGround);
+    }
     platforms.forEach((p) => {
       p.prevY = p.y;
       if (p.moving && now > (p.frozen ?? 0)) {
@@ -1035,7 +1062,7 @@ class Journey extends Phaser.Scene {
       const p = platforms[this.groundIndex];
       this.y += p.y - (p.prevY ?? p.y);
     }
-    if (this.pressed("SPACE")) {
+    if (!locked && this.pressed("SPACE")) {
       if (
         (this.down("S") || this.down("DOWN")) &&
         this.onGround &&
@@ -1051,9 +1078,10 @@ class Journey extends Phaser.Scene {
         this.jumpAt = -999;
       } else this.jumpAt = now;
     }
-    const move =
-      Number(this.down("D") || this.down("RIGHT")) -
-      Number(this.down("A") || this.down("LEFT"));
+    const move = locked
+      ? 0
+      : Number(this.down("D") || this.down("RIGHT")) -
+        Number(this.down("A") || this.down("LEFT"));
     if (this.onGround && now - this.dashAt > 0.3) {
       if (
         move &&
@@ -1067,14 +1095,14 @@ class Journey extends Phaser.Scene {
     }
     this.previousMove = move;
     if (move && now - this.attackAt > 0.23) this.facing = move;
-    if (this.pressed("SHIFT")) this.dashInputAt = now;
+    if (!locked && this.pressed("SHIFT")) this.dashInputAt = now;
     if (now - this.dashInputAt < 0.12 && now - this.dashAt > 1.1) {
       this.dashInputAt = -999;
       this.dashAt = now;
       this.effects.burst(this.x, this.y - 25, now, "dash", reduced);
       sound(240);
     }
-    const dash = now - this.dashAt < 0.19;
+    const dash = !locked && now - this.dashAt < 0.19;
     const wind = sampleWind(this.x, this.y, now, this.windTurns);
     if (wind.zone?.lift && wind.zone.lift > 1000) {
       if (this.windRide?.id !== wind.zone.id)
@@ -1095,11 +1123,14 @@ class Journey extends Phaser.Scene {
         persist();
       }
     }
-    this.vx = dash
-      ? this.facing * 760
-      : this.vx +
-        Phaser.Math.Clamp(targetSpeed - this.vx, -3200 * dt, 3200 * dt);
+    this.vx = locked
+      ? this.doll.drag(this.vx, dt, this.onGround)
+      : dash
+        ? this.facing * 760
+        : this.vx +
+          Phaser.Math.Clamp(targetSpeed - this.vx, -3200 * dt, 3200 * dt);
     if (
+      !locked &&
       now - this.jumpAt < 0.14 &&
       (this.onGround || now - this.lastGround < 0.12)
     ) {
@@ -1111,7 +1142,7 @@ class Journey extends Phaser.Scene {
       this.jumpAt = -999;
       sound(400);
     }
-    if (this.pressed("J") || (this.arena && this.down("J")))
+    if (!locked && (this.pressed("J") || (this.arena && this.down("J"))))
       this.attackInputAt = now;
     if (now - this.attackInputAt < 0.14 && now - this.attackAt > 0.38) {
       this.attackInputAt = -999;
@@ -1120,7 +1151,7 @@ class Journey extends Phaser.Scene {
       this.attackResolved = false;
       sound(180);
     }
-    if (!this.attackResolved && now - this.attackAt >= 0.085) {
+    if (!locked && !this.attackResolved && now - this.attackAt >= 0.085) {
       this.attackResolved = true;
       const boss = this.guardian;
       if (
@@ -1177,7 +1208,7 @@ class Journey extends Phaser.Scene {
         }
       });
     }
-    if (this.pressed("K") && now - this.bindAt > 0.45) {
+    if (!locked && this.pressed("K") && now - this.bindAt > 0.45) {
       const boss = this.guardian;
       if (
         this.energy >= 25 &&
@@ -1246,18 +1277,32 @@ class Journey extends Phaser.Scene {
     if (now - this.bindAt > 1.4)
       this.energy = Math.min(100, this.energy + dt * 13);
     const oldY = this.y;
+    const dollArena = locked ? this.arena : undefined;
     this.x = Phaser.Math.Clamp(this.x + this.vx * dt, 35, WORLD_WIDTH - 40);
+    if (dollArena) {
+      const bounded = Phaser.Math.Clamp(
+        this.x,
+        dollArena.left + 15,
+        dollArena.right - 15,
+      );
+      if (bounded !== this.x) {
+        this.x = bounded;
+        this.vx *= -0.15;
+      }
+    }
     for (const room of rooms) {
       if (
         !gateOpen(rooms.indexOf(room)) &&
         this.x > room.gate - 15 &&
         this.x < room.gate + 80 &&
         this.vx > 0
-      )
+      ) {
         this.x = room.gate - 15;
+        if (locked) this.vx = 0;
+      }
     }
     this.vy += (dash ? 160 : 1350) * dt;
-    if (wind.lift > 0 && !dash && !this.onGround && !resistingWind) {
+    if (wind.lift > 0 && !locked && !dash && !this.onGround && !resistingWind) {
       // Preserve a fresh jump's upward momentum; wind only adds lift below its cruising speed.
       this.vy -= Math.min(wind.lift * dt, Math.max(0, this.vy + 310));
     }
@@ -1283,11 +1328,16 @@ class Journey extends Phaser.Scene {
         if (this.vy > 180)
           this.effects.burst(this.x, p.y, now, "land", reduced);
         this.y = p.y;
-        this.vy = 0;
-        this.onGround = true;
-        this.groundIndex = landing;
+        this.vy = locked ? this.doll.land(this.vy) : 0;
+        this.onGround = this.vy >= 0;
+        this.groundIndex = this.onGround ? landing : -1;
         this.lastGround = now;
-        if (!p.moving && this.x > p.x + 20 && this.x < p.x + p.w - 20)
+        if (
+          !locked &&
+          !p.moving &&
+          this.x > p.x + 20 &&
+          this.x < p.x + p.w - 20
+        )
           this.safe = { x: this.x, y: this.y };
       }
     }
@@ -1322,7 +1372,8 @@ class Journey extends Phaser.Scene {
             "露冠守卫醒来了。J 连击 · 红色箭纹躲冲锋 · 金色地纹跳根浪 · K 打断并打开破绽",
           );
         }
-        if (result.damage) this.damage(false, this.x - this.guardian.x);
+        if (result.damage)
+          this.damage(false, this.x - this.guardian.x, result.impact);
       }
       if (this.guardian.hp > 0 && this.x > GUARDIAN.right) {
         this.x = GUARDIAN.right;
@@ -1340,7 +1391,14 @@ class Journey extends Phaser.Scene {
         return;
       }
       const before = e.phase;
-      if (stepCreature(e, now, dt, this)) this.damage(false, this.x - e.x);
+      if (stepCreature(e, now, dt, this))
+        this.damage(false, this.x - e.x, {
+          kind: e.type ? "flying" : "ground",
+          sourceX: e.x,
+          sourceY: e.y,
+          direction: e.attackDir,
+          instance: `${e.id}:strike:${e.phaseAt}`,
+        });
       if (e.phase === "windup" && before !== "windup")
         sound(e.type ? 330 : 210);
     });
@@ -1412,7 +1470,7 @@ class Journey extends Phaser.Scene {
         .setPosition(12000, 970)
         .setText("E · 回访晨露庭院（可选探索）");
     }
-    if (this.pressed("E")) {
+    if (!locked && this.pressed("E")) {
       if (
         save.stones.includes(0) &&
         Math.abs(this.x - 12080) < 85 &&
@@ -1551,19 +1609,23 @@ class Journey extends Phaser.Scene {
     persist();
     toast("已回到检查点并恢复生命与光能。收集、灯环与邀约进度全部保留。");
   }
-  damage(fall: boolean, direction = 0) {
+  damage(fall: boolean, direction = 0, hit?: HitContext) {
     if (
       !fall &&
-      (this.clock - this.hurtAt < 1.5 || this.clock - this.dashAt < 0.22)
+      (this.doll.state.active ||
+        this.clock - this.hurtAt < 1.5 ||
+        this.clock - this.dashAt < 0.22 ||
+        (hit && hit.instance === this.doll.state.instance))
     )
       return;
     this.hp--;
-    this.hitDirection = direction;
+    this.hitDirection = hit?.direction ?? direction;
     this.hurtAt = this.clock;
     this.effects.burst(this.x, this.y - 30, this.clock, "hurt", reduced);
     sound(120);
     if (!reduced && preferences.shake) this.cameras.main.shake(100, 0.003);
     if (this.hp <= 0) {
+      this.doll.reset();
       this.art.defeat(this.x, this.y, this.clock, this.facing);
       this.art.actor.reset();
       const retryGuardian =
@@ -1588,14 +1650,32 @@ class Journey extends Phaser.Scene {
       this.groundIndex = -1;
       toast("石碑留住了你的微光。玻璃珠与旅程进度已保留。");
     } else if (fall) {
+      this.doll.reset();
+      this.art.actor.reset();
+      this.vx = 0;
       this.x = this.safe.x;
       this.y = this.safe.y;
       this.onGround = false;
       this.groundIndex = -1;
       toast("晨风把你送回了安全的落脚处。");
     } else {
-      this.x -= this.facing * 28;
-      this.vy = -190;
+      const impact = hit ?? {
+        kind: "ground",
+        sourceX: this.x - direction,
+        sourceY: this.y,
+        direction: Math.sign(direction) || -this.facing,
+        instance: `hit:${++this.hitSerial}`,
+      };
+      this.doll.start(impact);
+      this.vx = this.doll.state.direction * this.doll.profile.horizontal;
+      this.vy = -this.doll.profile.upward;
+      this.onGround = false;
+      this.groundIndex = -1;
+      this.attackResolved = true;
+      this.attackAt = -999;
+      const accumulator = this.accumulator;
+      this.clearInput();
+      this.accumulator = accumulator;
     }
     this.vy = fall ? 0 : this.vy;
     this.lastGround = -999;

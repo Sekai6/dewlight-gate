@@ -15,6 +15,7 @@ import {
 } from "./dreamscape";
 import { ActionActor } from "./action-a/actor";
 import { heroAction } from "./action-a/drivers";
+import type { DollHitState } from "./action-a/doll-hit/state";
 import type { Platform } from "./level";
 import { stones } from "./level";
 import { sanctuaryTexture } from "./sanctuary";
@@ -644,6 +645,8 @@ function paintGate(c: C) {
 }
 
 export interface HeroPose {
+  dollPose?: Readonly<DollHitState> | null;
+  dollFloor?: number;
   support?: { id: string | number; x: number; y: number };
   groundIndex?: number;
   turnAt?: number;
@@ -862,6 +865,8 @@ export class ArtDirector {
       heroAction(
         {
           ...pose,
+          dollPose: pose.dollPose,
+          dollFloor: pose.dollFloor,
           landAt: this.landedAt,
           support: platform
             ? { id: pose.groundIndex!, x: platform.x, y: platform.y }

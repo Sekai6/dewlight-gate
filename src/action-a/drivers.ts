@@ -12,7 +12,9 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     action = name;
     age = since(at);
   };
-  if (since(p.hurtAt) >= 0 && since(p.hurtAt) < 0.24) choose("hurt", p.hurtAt);
+  if (p.dollPose?.active) choose("hurt", p.hurtAt);
+  else if (since(p.hurtAt) >= 0 && since(p.hurtAt) < 0.24)
+    choose("hurt", p.hurtAt);
   else if (since(p.dashAt) >= 0 && since(p.dashAt) < 0.19)
     choose("dash", p.dashAt);
   else if (since(p.attackAt) >= 0 && since(p.attackAt) < 0.38) {
@@ -31,6 +33,9 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
   else if (Math.abs(p.vx) > 5) action = Math.abs(p.vx) > 180 ? "run" : "walk";
   return {
     x: p.x,
+    doll: p.dollPose ?? undefined,
+    dollFloor: p.dollFloor,
+    attackSegment: p.attackStyle ? 2 : 1,
     y: p.y,
     instance: ["slash", "rising-slash", "air-slash"].includes(action)
       ? `attack:${p.attackAt}`
