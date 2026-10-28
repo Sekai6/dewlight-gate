@@ -15,6 +15,7 @@ export interface Enemy {
   phase: CreaturePhase;
   phaseAt: number;
   hurtAt: number;
+  hitDirection?: number;
   diedAt: number;
   attackDir: number;
   attackHit: boolean;
@@ -29,6 +30,7 @@ export function hurtCreature(e: Enemy, time: number, direction: number) {
   if (e.hp <= 0) return;
   e.hp--;
   e.hurtAt = time;
+  e.hitDirection = direction;
   e.phase = "recover";
   e.phaseAt = time;
   e.warn = 0;

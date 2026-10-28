@@ -6,6 +6,12 @@
 
 ![晨露庭院与安全开场](docs/media/opening.png)
 
+## v1.1.0 ? ACTION-A
+
+新版接入自研 ACTION-A 分层骨骼动画，覆盖主控、苔影、玻璃蛾和露冠守卫。重制剑舞发力链、动作衔接与受击反应，保持现有玩法和存档兼容。
+
+运行 `npm run dev` 后访问 `http://127.0.0.1:5173/?action-a` 可进入动作预览。[第四轮剑舞与战斗重制](docs/ACTION-A-ROUND4.md) · [第三轮分层重构与夸张动作](docs/ACTION-A-ROUND3.md) · [系统说明与验收方法](docs/ACTION-A.md)。
+
 ## 游戏特色
 
 - 安全开场、短平台练习与第一关小 Boss「露冠守卫」。

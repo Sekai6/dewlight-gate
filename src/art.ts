@@ -13,14 +13,8 @@ import {
   paintDreamForest,
   paintDreamSprouts,
 } from "./dreamscape";
-import {
-  paintHero,
-  heroFrame,
-  HERO_FRAMES,
-  HERO_WIDTH,
-  HERO_HEIGHT,
-  HERO_ORIGIN_Y,
-} from "./hero";
+import { ActionActor } from "./action-a/actor";
+import { heroAction } from "./action-a/drivers";
 import type { Platform } from "./level";
 import { stones } from "./level";
 import { sanctuaryTexture } from "./sanctuary";
@@ -650,6 +644,8 @@ function paintGate(c: C) {
 }
 
 export interface HeroPose {
+  support?: { id: string | number; x: number; y: number };
+  groundIndex?: number;
   turnAt?: number;
   brakeAt?: number;
   launchAt?: number;
@@ -667,6 +663,7 @@ export interface HeroPose {
   attackAt: number;
   bindAt: number;
   hurtAt: number;
+  hitDirection?: number;
 }
 export class ArtDirector {
   private dream: Dreamscape;
@@ -678,7 +675,14 @@ export class ArtDirector {
   private forest: Phaser.GameObjects.TileSprite[] = [];
   private ledges: Phaser.GameObjects.Image[] = [];
   private sanctuaries: Phaser.GameObjects.Image[] = [];
-  private hero: Phaser.GameObjects.Image;
+  readonly actor: ActionActor;
+  private fallen: ActionActor;
+  private fallPose: {
+    x: number;
+    y: number;
+    clock: number;
+    facing: number;
+  } | null = null;
   private contact: Phaser.GameObjects.Graphics;
   private wasGrounded = true;
   private landedAt = -999;
@@ -751,15 +755,9 @@ export class ArtDirector {
           .setDepth(-2),
       );
     });
-    for (let frame = 0; frame < HERO_FRAMES; frame++)
-      texture(scene, `hero-${frame}`, HERO_WIDTH, HERO_HEIGHT, (c) =>
-        paintHero(c, frame),
-      );
-    this.hero = scene.add
-      .image(0, 0, "hero-0")
-      .setOrigin(0.5, HERO_ORIGIN_Y)
-      .setScale(1 / 3)
-      .setDepth(6);
+    this.actor = new ActionActor(scene, "hero", 6);
+    this.fallen = new ActionActor(scene, "hero", 5.9, false);
+    this.fallen.setVisible(false);
     this.lantern = scene.add
       .image(0, 0, "soft-light")
       .setBlendMode(Phaser.BlendModes.ADD)
@@ -776,6 +774,16 @@ export class ArtDirector {
       .image(100, 1100, "gate")
       .setOrigin(0.5, 410 / 480)
       .setDepth(-1);
+  }
+  defeat(x: number, y: number, clock: number, facing: number) {
+    this.fallen.reset();
+    this.fallPose = { x, y, clock, facing };
+  }
+  reset() {
+    this.actor.reset();
+    this.fallen.reset();
+    this.fallen.setVisible(false);
+    this.fallPose = null;
   }
   draw(
     pose: HeroPose,
@@ -835,27 +843,33 @@ export class ArtDirector {
       this.contact.lineStyle(1, 0xd3ecc7, 0.2 * landing);
       this.contact.strokeEllipse(pose.x, pose.y, 44 + (1 - landing) * 26, 6);
     }
-    const attack = Math.max(0, 1 - (pose.clock - pose.attackAt) / 0.3);
-    const frame = heroFrame({ ...pose, landAt: this.landedAt });
-    const dash = pose.clock - pose.dashAt < 0.19;
-    const airStretch =
-      reduced || pose.onGround || dash
-        ? 0
-        : Math.min(0.055, Math.abs(pose.vy) / 11000);
-    this.hero
-      .setTexture(`hero-${frame}`)
-      .setPosition(pose.x, pose.y)
-      .setFlipX(pose.facing < 0)
-      .setRotation(
-        dash
-          ? pose.facing * 0.13
-          : pose.facing * Math.sin(attack * Math.PI) * 0.17,
-      )
-      .setScale(
-        (1 + attack * 0.06 + landing * 0.12 - airStretch) / 3,
-        (1 - attack * 0.04 - landing * 0.1 + airStretch) / 3,
-      )
-      .setTint(pose.clock - pose.hurtAt < 0.15 ? 0xffe1b3 : 0xffffff);
+    if (this.fallPose && pose.clock - this.fallPose.clock < 0.65 && !title) {
+      this.fallen.draw({
+        ...this.fallPose,
+        clock: pose.clock,
+        age: pose.clock - this.fallPose.clock,
+        action: "defeat",
+        vx: 0,
+        grounded: false,
+        reduced,
+      });
+    } else this.fallen.setVisible(false);
+    const platform =
+      pose.onGround && pose.groundIndex !== undefined && pose.groundIndex >= 0
+        ? this.platforms[pose.groundIndex]
+        : undefined;
+    this.actor.draw(
+      heroAction(
+        {
+          ...pose,
+          landAt: this.landedAt,
+          support: platform
+            ? { id: pose.groundIndex!, x: platform.x, y: platform.y }
+            : undefined,
+        },
+        reduced,
+      ),
+    );
     this.lantern
       .setPosition(pose.x - pose.facing * 10, pose.y - 14)
       .setScale(0.5 + (reduced ? 0 : Math.sin(pose.clock * 3) * 0.025));
@@ -865,12 +879,16 @@ export class ArtDirector {
       const x = cam.scrollX + worldW * 0.76,
         y = cam.scrollY + worldH * 0.84;
       this.gate.setPosition(x - 65, y).setScale(1.35);
-      this.hero
-        .setPosition(x + 95, y)
-        .setScale(0.48)
-        .setTexture(
-          `hero-${heroFrame({ ...pose, vx: 0, onGround: true, attackAt: -999, bindAt: -999, dashAt: -999 })}`,
-        );
+      this.actor.draw({
+        ...heroAction(pose, reduced),
+        x: x + 95,
+        y,
+        action: "idle",
+        age: pose.clock,
+        vx: 0,
+        grounded: true,
+      });
+      this.actor.container.setPosition(x + 95, y).setScale(1.44);
       this.lantern.setPosition(x + 80, y - 22).setScale(0.75);
       this.halo.setPosition(x + 95, y - 35).setScale(1.4);
       const ledge = this.ledges[0];

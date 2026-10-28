@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { HERO_ORIGIN_Y, heroSwordPose } from "./hero";
 import { createEffectArt } from "./effect-art";
 
 interface Particle {
@@ -26,27 +25,17 @@ interface Ring {
   radius: number;
   color: number;
 }
-interface Trail {
-  frame: number;
-  x: number;
-  y: number;
-  born: number;
-  facing: number;
-}
 export class Effects {
   private particles: Particle[] = [];
   private rings: Ring[] = [];
-  private trails: Trail[] = [];
   private glow: Phaser.GameObjects.Graphics;
   private ink: Phaser.GameObjects.Graphics;
-  private ghosts: Phaser.GameObjects.Image[] = [];
   private flecks: Phaser.GameObjects.Image[] = [];
   private column: Phaser.GameObjects.Image;
   private dashVeil: Phaser.GameObjects.Image;
   private vineSeal: Phaser.GameObjects.Image;
   private ceremony = { x: 0, y: 0, born: -999 };
   private lastTime = 0;
-  private lastTrail = -1;
   private lastStep = 0;
   private stepX = 0;
   constructor(scene: Phaser.Scene) {
@@ -76,17 +65,6 @@ export class Effects {
       .setDepth(9)
       .setBlendMode(Phaser.BlendModes.ADD);
     this.ink = scene.add.graphics().setDepth(8);
-    for (let n = 0; n < 12; n++)
-      this.ghosts.push(
-        scene.add
-          .image(0, 0, "hero-72")
-          .setOrigin(0.5, HERO_ORIGIN_Y)
-          .setScale(1 / 3)
-          .setTint(0x8fe7d8)
-          .setBlendMode(Phaser.BlendModes.ADD)
-          .setDepth(5.5)
-          .setVisible(false),
-      );
   }
   reset() {
     this.vineSeal.setVisible(false);
@@ -94,12 +72,9 @@ export class Effects {
     this.dashVeil.setVisible(false);
     this.flecks.forEach((i) => i.setVisible(false));
     this.ceremony.born = -999;
-    this.ghosts.forEach((image) => image.setVisible(false));
     this.particles = [];
     this.rings = [];
-    this.trails = [];
     this.lastTime = 0;
-    this.lastTrail = -1;
   }
   burst(
     x: number,
@@ -273,37 +248,6 @@ export class Effects {
       .setFlipX(player.facing < 0)
       .setDisplaySize(170, 60)
       .setAlpha(0.65);
-    if (
-      !reduced &&
-      time - player.dashAt < 0.2 &&
-      time - this.lastTrail > 0.022
-    ) {
-      this.trails.push({
-        x: player.x,
-        y: player.y,
-        born: time,
-        facing: player.facing,
-        frame:
-          72 +
-          Math.min(
-            11,
-            Math.max(0, Math.floor(((time - player.dashAt) / 0.19) * 12)),
-          ),
-      });
-      this.lastTrail = time;
-    }
-    this.trails = this.trails.filter((t) => time - t.born < 0.32);
-    this.ghosts.forEach((image, n) => {
-      const trail = this.trails[n];
-      image.setVisible(!!trail && !reduced);
-      if (trail)
-        image
-          .setTexture(`hero-${trail.frame}`)
-          .setPosition(trail.x, trail.y)
-          .setFlipX(trail.facing < 0)
-          .setRotation(trail.facing * 0.13)
-          .setAlpha((1 - (time - trail.born) / 0.32) * 0.25);
-    });
     this.particles = this.particles.filter((p) => time - p.born < p.life);
     for (const [index, p] of this.particles.entries()) {
       p.x += p.vx * dt;
@@ -475,79 +419,6 @@ export class Effects {
           }
         }
         i.strokePath();
-      }
-    }
-    const attack = (time - player.attackAt - 0.08) / 0.22;
-    if (attack >= 0 && attack < 1) {
-      const dir = player.facing;
-      const progress = (time - player.attackAt) / 0.38;
-      const bladeAngle = (p: number) => {
-        const wrist = heroSwordPose(p, !!player.attackStyle);
-        return Math.atan2(
-          wrist.y - Math.cos(wrist.angle) * 29 + 30,
-          dir * (wrist.x + Math.sin(wrist.angle) * 29),
-        );
-      };
-      const start = bladeAngle(Math.max(0.16, progress - 0.15));
-      const head = bladeAngle(Math.min(0.58, progress));
-      const sweep = Math.atan2(Math.sin(head - start), Math.cos(head - start));
-      const end = start + sweep;
-      const x = player.x,
-        y = player.y - 30;
-      if (!reduced) {
-        const energy = Math.sin(attack * Math.PI),
-          tint = [0xc8f3d6, 0xc5d9ff, 0xf6ccdc][player.region ?? 0];
-        for (let n = 0; n < 18; n++) {
-          const a0 = start + ((end - start) * n) / 18,
-            a1 = start + ((end - start) * (n + 1)) / 18;
-          const outer = 68 + Math.sin((n / 18) * Math.PI) * 5,
-            inner = 47 + (n / 18) * 9;
-          g.fillStyle(
-            n % 4 === 0 ? 0xffe4b8 : tint,
-            energy * 0.13 * (0.3 + n / 18),
-          );
-          g.fillTriangle(
-            x + Math.cos(a0) * inner,
-            y + Math.sin(a0) * inner,
-            x + Math.cos(a0) * outer,
-            y + Math.sin(a0) * outer,
-            x + Math.cos(a1) * outer,
-            y + Math.sin(a1) * outer,
-          );
-          g.fillTriangle(
-            x + Math.cos(a0) * inner,
-            y + Math.sin(a0) * inner,
-            x + Math.cos(a1) * outer,
-            y + Math.sin(a1) * outer,
-            x + Math.cos(a1) * inner,
-            y + Math.sin(a1) * inner,
-          );
-        }
-        const tipX = x + Math.cos(end) * 64,
-          tipY = y + Math.sin(end) * 64;
-        g.lineStyle(1, 0xfff5d5, energy * 0.8);
-        g.lineBetween(tipX - 6, tipY, tipX + 6, tipY);
-        g.lineBetween(tipX, tipY - 8, tipX, tipY + 8);
-      }
-      for (let layer = 0; layer < 4; layer++) {
-        g.lineStyle(
-          [18, 8, 3, 1][layer],
-          layer < 2 ? 0x8eecde : 0xfff1c7,
-          [0.055, 0.17, 0.7, 0.95][layer] * Math.sin(attack * Math.PI),
-        );
-        g.beginPath();
-        g.arc(x, y, 54 + layer * 3, start, end, sweep < 0);
-        g.strokePath();
-      }
-      for (let n = 0; n < 5; n++) {
-        const a = start + ((end - start) * n) / 5;
-        g.lineStyle(1, 0xf9edbd, (1 - attack) * 0.6);
-        g.lineBetween(
-          x + Math.cos(a) * 70,
-          y + Math.sin(a) * 70,
-          x + Math.cos(a) * 84,
-          y + Math.sin(a) * 84,
-        );
       }
     }
   }

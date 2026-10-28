@@ -7,7 +7,8 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
     "types": ["@webgpu/types"],
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src"]
 }

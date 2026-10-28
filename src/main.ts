@@ -472,6 +472,7 @@ class Journey extends Phaser.Scene {
   bindAt = -999;
   bindTarget = { x: 0, y: 0 };
   hurtAt = -999;
+  hitDirection = 0;
   safe = { x: 130, y: GROUND_Y };
   onGround = false;
   groundIndex = -1;
@@ -493,6 +494,11 @@ class Journey extends Phaser.Scene {
       : undefined;
   }
   guardianArt!: GuardianArt;
+  resetAnimations() {
+    this.art?.reset();
+    this.creatures?.actors.forEach((actor) => actor.reset());
+    this.guardianArt?.actor.reset();
+  }
   retryGuardian() {
     if (!this.arena) return;
     this.guardian = createGuardian();
@@ -512,6 +518,7 @@ class Journey extends Phaser.Scene {
     this.hitPause = 0;
     this.clearInput();
     this.effects.reset();
+    this.resetAnimations();
     this.framing.reset();
     persist();
     toast("已回到空地入口。四点微光保留，准备好后向前再战。");
@@ -872,6 +879,7 @@ class Journey extends Phaser.Scene {
     this.guideCacheAt = -999;
     this.framing.reset();
     this.effects?.reset();
+    this.resetAnimations();
     this.regionSeen.clear();
     this.lastGround = -999;
     this.saveClock = 0;
@@ -1314,7 +1322,7 @@ class Journey extends Phaser.Scene {
             "露冠守卫醒来了。J 连击 · 红色箭纹躲冲锋 · 金色地纹跳根浪 · K 打断并打开破绽",
           );
         }
-        if (result.damage) this.damage(false);
+        if (result.damage) this.damage(false, this.x - this.guardian.x);
       }
       if (this.guardian.hp > 0 && this.x > GUARDIAN.right) {
         this.x = GUARDIAN.right;
@@ -1332,7 +1340,7 @@ class Journey extends Phaser.Scene {
         return;
       }
       const before = e.phase;
-      if (stepCreature(e, now, dt, this)) this.damage(false);
+      if (stepCreature(e, now, dt, this)) this.damage(false, this.x - e.x);
       if (e.phase === "windup" && before !== "windup")
         sound(e.type ? 330 : 210);
     });
@@ -1538,22 +1546,26 @@ class Journey extends Phaser.Scene {
     this.guideCacheAt = -999;
     this.clearInput();
     this.effects.reset();
+    this.resetAnimations();
     this.framing.reset();
     persist();
     toast("已回到检查点并恢复生命与光能。收集、灯环与邀约进度全部保留。");
   }
-  damage(fall: boolean) {
+  damage(fall: boolean, direction = 0) {
     if (
       !fall &&
       (this.clock - this.hurtAt < 1.5 || this.clock - this.dashAt < 0.22)
     )
       return;
     this.hp--;
+    this.hitDirection = direction;
     this.hurtAt = this.clock;
     this.effects.burst(this.x, this.y - 30, this.clock, "hurt", reduced);
     sound(120);
     if (!reduced && preferences.shake) this.cameras.main.shake(100, 0.003);
     if (this.hp <= 0) {
+      this.art.defeat(this.x, this.y, this.clock, this.facing);
+      this.art.actor.reset();
       const retryGuardian =
         !save.stones.includes(0) &&
         this.x < 6000 &&

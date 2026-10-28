@@ -1,12 +1,16 @@
+import { ActionActor } from "./action-a/actor";
+import { guardianAction } from "./action-a/drivers";
 import Phaser from "phaser";
 import type { DewGuardian } from "./boss";
 import { GUARDIAN } from "./boss";
 
 export class GuardianArt {
+  readonly actor: ActionActor;
   private g: Phaser.GameObjects.Graphics;
   private title: Phaser.GameObjects.Text;
   private hit: Phaser.GameObjects.Text;
   constructor(scene: Phaser.Scene) {
+    this.actor = new ActionActor(scene, "guardian", 5.6);
     this.g = scene.add.graphics().setDepth(5.6);
     this.title = scene.add
       .text(0, 0, "", {
@@ -35,6 +39,7 @@ export class GuardianArt {
     g.clear();
     this.title.setVisible(visible);
     this.hit.setVisible(visible && time < b.hurtUntil);
+    this.actor.draw(guardianAction(b, time, reduced, visible));
     if (!visible) return;
     const dead = b.phase === "defeated",
       warning = b.phase === "warn";
@@ -80,131 +85,14 @@ export class GuardianArt {
       g.fillStyle(0xb4dcad, 0.85);
       g.fillTriangle(wave.x - 13, y, wave.x, y - 30, wave.x + 13, y);
     }
-    g.save();
-    g.translateCanvas(x, y);
-    g.scaleCanvas(1.2, 1.2);
-    const lean = reduced
-      ? 0
-      : b.phase === "charge"
-        ? b.facing * 0.14
-        : b.phase === "warn"
-          ? -b.facing * windup * 0.12
-          : b.phase === "recover"
-            ? b.facing * 0.08
-            : 0;
-    g.rotateCanvas(lean);
-    g.translateCanvas(-x, -y);
-    // Four roots support a broad glazed-stone torso beneath a living crown.
-    for (const side of [-1, 1]) {
-      g.lineStyle(10, 0x355951, 1);
-      const stride =
-        b.phase === "charge" && !reduced ? Math.sin(age * 25) * side * 10 : 0;
-      g.lineBetween(x + side * 20, y - 32, x + side * 38 + stride, y - 8);
-      g.lineStyle(5, 0xa1bba0, 1);
-      g.lineBetween(x + side * 38, y - 8, x + side * 50, y - 3);
-    }
-    const bodyY =
-      y -
-      (dead ? 31 : 54) +
-      (b.phase === "charge"
-        ? 7
-        : b.phase === "recover"
-          ? 9
-          : windup * 8 - slamWind * 19 + pulse * 1.1);
-    if (!reduced && b.phase === "charge") {
-      g.lineStyle(3, 0xb5ead7, 0.3);
-      for (let n = 0; n < 3; n++)
-        g.lineBetween(
-          x - b.facing * 65,
-          bodyY - 20 + n * 15,
-          x - b.facing * (95 + n * 18),
-          bodyY - 20 + n * 15,
-        );
-    }
-    g.fillStyle(dead ? 0x648e79 : 0x315f62, 1);
-    g.fillRoundedRect(x - 42, bodyY - 31, 84, 67, 20);
-    g.fillStyle(0x9abda5, 0.85);
-    g.fillEllipse(x - 10, bodyY - 17, 58, 32);
-    // Overlapping stone facets and dew crystals give the guardian a different material
-    // from the small moss creatures, without importing raster art.
-    for (let n = 0; n < 6; n++) {
-      const a = (n * Math.PI) / 3;
-      const fx = x + Math.cos(a) * 30,
-        fy = bodyY + Math.sin(a) * 22;
-      g.fillStyle(n % 2 ? 0x6c9e96 : 0x497e7a, 0.65);
-      g.fillTriangle(fx, fy, fx - 12, fy + 12, fx + 13, fy + 9);
-      g.lineStyle(1, 0xc0d8bd, 0.55);
-      g.lineBetween(fx - 9, fy + 9, fx, fy);
-    }
-    for (const side of [-1, 1]) {
-      const sx = x + side * 41;
-      const armLift = slamWind * 25;
-      g.lineStyle(7, 0x48766a, 1);
-      g.lineBetween(
-        sx,
-        bodyY - 10,
-        sx + side * (16 + slamWind * 5),
-        bodyY + 15 - armLift,
-      );
-      g.fillStyle(0x7aa68b, 1);
-      g.fillEllipse(sx + side * 16, bodyY + 18 - armLift, 17, 22);
-      g.fillStyle(0x4e8077, 1);
-      g.fillEllipse(sx, bodyY + 4, 20, 35);
-      g.fillStyle(0xa0c4a5, 0.9);
-      g.fillEllipse(sx - side * 2, bodyY - 9, 16, 12);
-      g.fillStyle(warning ? 0xffbd96 : 0xb9e6df, 0.9);
-      g.fillTriangle(sx, bodyY - 18, sx - 7, bodyY - 5, sx + 7, bodyY - 5);
-    }
-    g.lineStyle(2, 0xd7dfb1, 0.8);
-    g.strokeEllipse(x, bodyY, 64, 54);
-    g.fillStyle(warning ? 0xffb08b : 0xc4ece0, 1);
-    g.fillTriangle(x, bodyY - 21, x - 13, bodyY + 2, x + 13, bodyY + 2);
-    g.fillStyle(0xf9edc4, 1);
-    g.fillCircle(x - 15, bodyY - 4, 3);
-    g.fillCircle(x + 15, bodyY - 4, 3);
-    if (!dead) {
-      g.lineStyle(5, 0x314e48, 1);
-      for (const side of [-1, 1]) {
-        g.lineBetween(x + side * 30, bodyY - 24, x + side * 47, bodyY - 60);
-        g.lineBetween(x + side * 47, bodyY - 60, x + side * 31, bodyY - 80);
-        g.lineBetween(x + side * 43, bodyY - 51, x + side * 62, bodyY - 62);
-        g.fillStyle(warning ? 0xffc39c : 0xd0dfb0, 1);
-        g.fillEllipse(x + side * 42, bodyY - 67, 18, 8);
-        g.fillTriangle(
-          x + side * 30,
-          bodyY - 73,
-          x + side * 28 - 5,
-          bodyY - 92,
-          x + side * 28 + 5,
-          bodyY - 92,
-        );
-      }
-      g.lineStyle(2, 0x82b19a, 0.9);
-      g.lineBetween(x - 29, bodyY + 18, x + 23, bodyY - 25);
-      g.lineBetween(x - 26, bodyY - 20, x + 28, bodyY + 20);
-    }
-    if (!dead) {
-      g.lineStyle(2, 0xd5d7ac, 0.85);
-      g.lineBetween(x - 25, bodyY - 23, x, bodyY - 37);
-      g.lineBetween(x, bodyY - 37, x + 25, bodyY - 23);
-      g.fillStyle(b.phase === "recover" ? 0xffe5a5 : 0x8eb8a3, 1);
-      g.fillTriangle(x, bodyY - 29, x - 8, bodyY - 17, x + 8, bodyY - 17);
-      for (let n = 0; n < 5; n++) {
-        const sx = x - 25 + n * 12;
-        g.lineStyle(1, 0xb4d4bf, 0.6);
-        g.lineBetween(sx, bodyY + 19, sx + 4, bodyY + 29);
-      }
-    }
     if (b.phase === "bound") {
       g.lineStyle(3, 0xc5e7ab, 0.9);
-      for (let n = 0; n < 3; n++)
-        g.strokeEllipse(x, bodyY - 15 + n * 15, 105, 22);
+      for (let n = 0; n < 3; n++) g.strokeEllipse(x, y - 60 + n * 15, 105, 22);
     }
     if (time < b.hurtUntil) {
-      g.lineStyle(3, 0xffefc2, 0.8);
-      g.strokeEllipse(x, bodyY, 97, 80);
+      g.lineStyle(2, 0xffefc2, 0.7);
+      g.strokeEllipse(x, y - 65, 100, 100);
     }
-    g.restore();
     const active = !dead && b.phase !== "sleep";
     this.title
       .setPosition((GUARDIAN.left + GUARDIAN.right) / 2, y - 235)
