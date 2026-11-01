@@ -1,3 +1,12 @@
+import { ContactController } from "./contact/controller";
+import { ImpulseController } from "./impulse/controller";
+import { IntentController, type IntentTarget } from "./intent/controller";
+import { RecoveryController } from "./recovery/controller";
+import {
+  SupportController,
+  type SupportInput,
+  type SupportSurface,
+} from "./support/controller";
 import Phaser from "phaser";
 import { CanvasPart, attachCanvasRig } from "./canvas";
 import {
@@ -16,15 +25,10 @@ import { ensureSkin } from "./skin";
 import { combatMask, combatMotion, sampleWeapon } from "./combat-motion";
 import type { DollHitState } from "./doll-hit/state";
 import { DollPoseSolver } from "./doll-hit/solver.ts";
-import {
-  approach,
-  balanceTarget,
-  footPhase,
-  supportWeight,
-  solveArm,
-  type FootPhase,
-} from "./balance.ts";
+import { approach, solveArm } from "./balance.ts";
 export interface ActorInput {
+  intentTarget?: IntentTarget;
+  lockedDirection?: number;
   doll?: Readonly<DollHitState>;
   dollFloor?: number;
   attackSegment?: 1 | 2;
@@ -34,7 +38,8 @@ export interface ActorInput {
   y: number;
   clock: number;
   instance?: string | number;
-  support?: { id: string | number; x: number; y: number };
+  support?: SupportSurface;
+  landingSpeed?: number;
   facing: number;
   action: Action;
   age: number;
@@ -50,15 +55,6 @@ export interface Point {
   x: number;
   y: number;
 }
-interface Contact {
-  x: number;
-  y: number;
-  planted: boolean;
-  phase: number;
-  cycle: number;
-  weight: number;
-  stage: FootPhase;
-}
 const upperMask = new Set([
   "root",
   "torso",
@@ -70,6 +66,14 @@ const upperMask = new Set([
   "foreBack",
 ]);
 export class ActionActor {
+  private contactController = new ContactController();
+  private impulse = new ImpulseController();
+  private intent = new IntentController();
+  private impulseEnabled = true;
+  private intentEnabled = true;
+  private contactEnabled = true;
+  private recovery = new RecoveryController();
+  private recoveryEnabled = true;
   private dollSolver = new DollPoseSolver();
   private dollInstance = "";
   private dollEntry: WorldPose = {};
@@ -120,26 +124,8 @@ export class ActionActor {
   private ornament = new FollowSpring();
   private last: ActorInput | null = null;
   private gait = 0;
-  private contacts: Contact[] = [
-    {
-      x: 0,
-      y: 0,
-      planted: false,
-      phase: 1,
-      cycle: -1,
-      weight: 0,
-      stage: "swing",
-    },
-    {
-      x: 0,
-      y: 0,
-      planted: false,
-      phase: 1,
-      cycle: -1,
-      weight: 0,
-      stage: "swing",
-    },
-  ];
+  private supportController = new SupportController();
+  private contacts = this.supportController.contacts;
   private history: { tip: Point; base: Point; time: number }[] = [];
   private trailPool = Array.from({ length: 24 }, () => ({
     tip: { x: 0, y: 0 },
@@ -163,8 +149,6 @@ export class ActionActor {
     born: number;
   }[] = [];
   private echoAt = -999;
-  private stopAt = -999;
-  private stopFeet: Point[] = [];
   private lastCombat: Action | undefined;
   private combatInstance: string | number | undefined;
   private lastReaction: Action = "hurt";
@@ -258,7 +242,21 @@ export class ActionActor {
         this.echoes.push({ container, images, born: -999 });
       }
   }
+  setModuleEnabled(name: "contact" | "impulse" | "intent", enabled: boolean) {
+    if (name === "contact") this.contactEnabled = enabled;
+    if (name === "impulse") {
+      this.impulseEnabled = enabled;
+      if (!enabled) this.impulse.reset();
+    }
+    if (name === "intent") {
+      this.intentEnabled = enabled;
+      if (!enabled) this.intent.reset();
+    }
+  }
   reset() {
+    this.contactController.reset();
+    this.impulse.reset();
+    this.intent.reset();
     this.dollSolver.reset();
     this.dollInstance = "";
     this.dollEntry = {};
@@ -285,8 +283,8 @@ export class ActionActor {
     this.attack = null;
     this.lastCombat = undefined;
     this.combatInstance = undefined;
-    this.stopFeet = [];
-    this.stopAt = -999;
+    this.supportController.reset();
+    this.recovery.reset();
     this.cape.reset();
     this.movement.reset();
     this.ornament.reset();
@@ -352,7 +350,11 @@ export class ActionActor {
         age: layer.age,
         blend: layer.animator.blendWeight,
       })),
+      impulse: { ...this.impulse.output, events: this.impulse.events },
+      intent: { ...this.intent.state },
+      constraints: this.contactController.snapshot(),
       supportEnabled: this.supportEnabled,
+      recovery: structuredClone(this.recovery.output),
       doll: this.last?.doll
         ? { ...this.last.doll, constraintError: this.dollSolver.output.error }
         : null,
@@ -487,7 +489,23 @@ export class ActionActor {
         this.dollSolver.reset();
         this.history.length = 0;
         this.gripReady = false;
-        for (const c of this.contacts) c.planted = false;
+        for (let i = 0; i < 2; i++) {
+          const c = this.contacts[i],
+            f = this.feet[i];
+          if (input.grounded && f) {
+            c.x = previous.x + f.x * previous.facing;
+            c.y = input.y;
+            const surface = input.support;
+            c.planted =
+              !surface ||
+              surface.left === undefined ||
+              surface.right === undefined ||
+              (c.x >= surface.left && c.x <= surface.right);
+            c.surfaceId = surface?.id;
+            c.localX = c.x - (surface?.x ?? 0);
+            c.localY = c.y - (surface?.y ?? 0);
+          } else c.planted = false;
+        }
       }
       if (this.kind === "moth") input = { ...input, grounded: false };
       if (!previous) this.airWeight = input.grounded ? 0 : 1;
@@ -512,15 +530,6 @@ export class ActionActor {
           ? Math.abs(input.x - previous.x - supportDx)
           : 0;
       this.gait += distance / this.rig.stride;
-      if (
-        previous &&
-        input.support &&
-        previous.support?.id === input.support.id
-      )
-        this.contacts.forEach((c) => {
-          c.x += supportDx;
-          c.y += input.support!.y - previous.support!.y;
-        });
       if (this.kind !== "hero" && previous && dt > 0)
         input = { ...input, vx: (input.x - previous.x) / dt };
       this.last = {
@@ -532,7 +541,11 @@ export class ActionActor {
         this.startAt = input.clock;
       if (previous && !previous.grounded && input.grounded) {
         this.landAt = input.clock;
-        this.landImpact = clamp(Math.abs(previous.vy ?? 250) / 650, 0.2, 1);
+        this.landImpact = clamp(
+          Math.abs(input.landingSpeed ?? previous.vy ?? 250) / 650,
+          0.2,
+          1,
+        );
         this.motes.push({
           x: input.x,
           y: input.y,
@@ -698,6 +711,44 @@ export class ActionActor {
         this.lastReaction === "hurt" ? "additive" : "override",
       );
       this.applyBodyMotion(pose, input, previous, dt);
+      if (this.impulseEnabled) {
+        const impulse = this.impulse.update(input, this.kind);
+        const ownership = input.doll?.active ? 0 : 1;
+        pose.hip.x += impulse.hip * ownership;
+        pose.torso.rotation += impulse.chest * ownership;
+        pose.arm.rotation += impulse.shoulder * ownership;
+        pose.head.rotation += impulse.head * ownership;
+        if (pose.crown) pose.crown.rotation += impulse.ornament * ownership;
+      }
+      if (this.intentEnabled) {
+        const intent = this.intent.update(
+          {
+            ...input,
+            target: input.intentTarget,
+            suppressed:
+              !!input.doll?.active || this.recovery.output.hand.weight > 0,
+          },
+          this.kind,
+        );
+        pose.head.rotation += intent.head;
+        pose.torso.rotation += intent.chest;
+      }
+      if (this.kind === "hero" && this.recoveryEnabled) {
+        const shoulder = this.world.armBack;
+        const recovery = this.recovery.update({
+          ...input,
+          shoulder: shoulder
+            ? {
+                x: input.x + shoulder.x * input.facing,
+                y: input.y + shoulder.y,
+              }
+            : undefined,
+        });
+        pose.hip.y += recovery.crouch;
+        pose.torso.rotation -= recovery.crouch * 0.018;
+        pose.head.rotation += recovery.crouch * 0.012;
+        pose.armBack.rotation += recovery.tuck * 0.5;
+      }
       if (input.action === "hurt" && input.hitDirection !== undefined) {
         pose.torso.rotation *= -Math.sign(
           input.hitDirection * input.facing || -1,
@@ -725,10 +776,13 @@ export class ActionActor {
       sword.c = -sword.b;
       sword.d = sword.a;
       sword.scaleX = sword.scaleY = 1;
+      this.contactController.beginFrame();
       this.solveFeet(input, previous);
-      this.solveWeapon(input, dt);
-      this.applyFollow(pose, input, dt);
+      if (!input.doll?.active) this.solveWeapon(input, dt);
       if (input.doll?.active && this.kind === "hero") this.applyDoll(input, dt);
+      this.applyRecoveryHand(input);
+      this.contactController.endFrame(dt);
+      this.applyFollow(pose, input, dt);
       this.submitPose();
       this.container.setPosition(input.x, input.y).setScale(input.facing, 1);
       if (
@@ -986,6 +1040,7 @@ export class ActionActor {
         weight,
         floor - 4,
         this.dollLimb,
+        this.contactController,
       );
       aim(i ? "armBack" : "arm", arm.x, arm.y, limb.jointX, limb.jointY);
       aim(i ? "foreBack" : "fore", limb.jointX, limb.jointY, limb.x, limb.y);
@@ -1028,6 +1083,7 @@ export class ActionActor {
         weight,
         floor - 2,
         this.dollLimb,
+        this.contactController,
       );
       this.hips[i].x = hx;
       this.hips[i].y = hy;
@@ -1100,6 +1156,64 @@ export class ActionActor {
     this.dollLastAngle = angle;
     this.history.length = 0;
   }
+  private applyRecoveryHand(input: ActorInput) {
+    const target = this.recovery.output.hand;
+    if (
+      !this.recoveryEnabled ||
+      !this.contactEnabled ||
+      this.kind !== "hero" ||
+      target.weight <= 0
+    )
+      return;
+    const arm = this.world.armBack,
+      fore = this.world.foreBack,
+      hand = this.world.lamp;
+    const x = (target.x - input.x) * input.facing,
+      y = target.y - input.y;
+    if (Math.hypot(x - arm.x, y - arm.y) > 23.5) return;
+    const solved = this.contactController.solve(
+      {
+        id: "free-hand",
+        kind: "brace",
+        anchorX: arm.x,
+        anchorY: arm.y,
+        x: hand.x + (x - hand.x) * target.weight,
+        y: hand.y + (y - hand.y) * target.weight,
+        upper: 12,
+        lower: 12,
+        bend: -1,
+        weight: target.weight,
+        valid: this.contactEnabled && input.grounded,
+      },
+      this.last ? input.clock - this.last.clock : 0,
+    );
+    const ik = {
+      knee: { x: solved.jointX, y: solved.jointY },
+      foot: { x: solved.x, y: solved.y },
+    };
+    const aim = (
+      t: typeof arm,
+      ax: number,
+      ay: number,
+      bx: number,
+      by: number,
+    ) => {
+      t.x = ax;
+      t.y = ay;
+      t.rotation = Math.atan2(by - ay, bx - ax) - Math.PI / 2;
+      t.a = Math.cos(t.rotation);
+      t.b = Math.sin(t.rotation);
+      t.c = -t.b;
+      t.d = t.a;
+      t.scaleX = t.scaleY = 1;
+    };
+    aim(arm, arm.x, arm.y, ik.knee.x, ik.knee.y);
+    aim(fore, ik.knee.x, ik.knee.y, ik.foot.x, ik.foot.y);
+    Object.assign(this.world.shoulderBack, arm);
+    Object.assign(this.world.elbowBack, fore);
+    hand.x = ik.foot.x;
+    hand.y = ik.foot.y;
+  }
   private applyBodyMotion(
     pose: Pose,
     input: ActorInput,
@@ -1111,14 +1225,6 @@ export class ActionActor {
     const combat = this.layers.combat;
     const motion = combatMotion(this.lastCombat ?? "idle");
     if (this.kind === "hero") {
-      const acceleration =
-        previous && dt > 0
-          ? clamp((input.vx - previous.vx) / dt, -1800, 1800)
-          : 0;
-      const force = ((acceleration * input.facing) / 1800) * (1 - reaction);
-      pose.hip.x += force * 1.5;
-      pose.torso.rotation += force * 0.09;
-      pose.head.rotation -= force * 0.06;
       if (motion && combat.enabled && combat.weight > 0) {
         const u = clamp(combat.age / 0.38);
         const air = Math.sin(u * Math.PI) * this.airWeight * combat.weight;
@@ -1224,16 +1330,30 @@ export class ActionActor {
           0.045,
         );
     }
-    const ik = solveArm(
-      shoulder.x,
-      shoulder.y,
-      this.gripTarget.x,
-      this.gripTarget.y,
-      12,
-      11,
-      this.armSolution,
-      this.gripReady,
+    const solved = this.contactController.solve(
+      {
+        id: "grip",
+        kind: "grip",
+        anchorX: shoulder.x,
+        anchorY: shoulder.y,
+        x: this.gripTarget.x,
+        y: this.gripTarget.y,
+        upper: 12,
+        lower: 11,
+        bend: -1,
+        weight: 1,
+        valid: true,
+        arm: this.armSolution,
+        ready: this.gripReady,
+      },
+      dt,
     );
+    const ik = {
+      elbowX: solved.jointX,
+      elbowY: solved.jointY,
+      x: solved.x,
+      y: solved.y,
+    };
     const aim = (
       t: typeof shoulder,
       x: number,
@@ -1318,177 +1438,35 @@ export class ActionActor {
     rotate("lamp", -cape * 0.7 * weight);
   }
   private solveFeet(input: ActorInput, previous: ActorInput | null) {
-    if (
-      previous &&
-      Math.abs(previous.vx) > 5 &&
-      Math.abs(input.vx) <= 5 &&
-      input.grounded
-    ) {
-      this.stopAt = input.clock;
-      this.stopFeet = this.feet.map((p) => ({
-        x: previous.x + p.x * previous.facing,
-        y: previous.y + p.y,
-      }));
-    }
-    const oldFeet = previous
-      ? this.feet.map((p) => ({
-          x: previous.x + p.x * previous.facing,
-          y: previous.y + p.y,
-        }))
-      : [];
+    const makeInput = (value: ActorInput): SupportInput => ({
+      ...value,
+      root: this.world.root,
+      enabled: this.supportEnabled && this.contactEnabled,
+      gait: this.gait,
+      turnAt: this.turnAt,
+      feet: this.feet,
+      combatWeight: combatMotion(this.lastCombat ?? "idle")
+        ? this.layers.combat.weight
+        : 0,
+      combatAge: this.layers.combat.age,
+    });
+    const result = this.supportController.update(
+      makeInput(input),
+      previous ? makeInput(previous) : null,
+      this.rig,
+    );
+    const { targets, mobile } = result;
+    this.balanceX = result.balanceX;
+    this.motes.push(...result.events);
     this.feet = [];
     this.knees = [];
     this.hips = [];
-    const mobile =
-      this.rig.support.enabled &&
-      input.grounded &&
-      Math.abs(input.vx) > 5 &&
-      !["dash", "hurt", "defeat", "bound"].includes(input.action);
-    const planted =
-      !input.doll?.active &&
-      input.grounded &&
-      !["dash", "defeat"].includes(input.action) &&
-      this.kind !== "moth" &&
-      this.supportEnabled;
-    const dt = previous ? Math.max(0, input.clock - previous.clock) : 0;
-    const span = (this.rig.stride * this.rig.stance) / 2;
-    const targets: { x: number; y: number; stance: boolean }[] = [];
-    for (let i = 0; i < 2; i++) {
-      const sign = i ? 1 : -1,
-        phase = (this.gait + i * 0.5) % 1;
-      const cycle = Math.floor(this.gait + i * 0.5);
-      const contact = this.contacts[i];
-      let localX = sign * this.rig.footSpan,
-        localY = 0;
-      let stance = !mobile || phase < this.rig.stance;
-      const turning =
-        planted && input.clock - this.turnAt < 0.075 && contact.planted;
-      if (turning) stance = true;
-      const stoppedSwing =
-        !mobile &&
-        planted &&
-        previous?.grounded &&
-        !contact.planted &&
-        input.clock - this.stopAt < 0.08 + (input.clock - previous.clock);
-      // A swing foot settles over 80ms rather than snapping to its neutral target.
-      if (stoppedSwing && this.stopFeet[i]) {
-        const u = clamp((input.clock - this.stopAt) / 0.08);
-        localX = (this.stopFeet[i].x - input.x) * input.facing;
-        localY = (this.stopFeet[i].y - input.y) * (1 - u);
-        stance = u >= 1;
-      }
-      if (mobile) {
-        if (stance) localX += span * (1 - (2 * phase) / this.rig.stance);
-        else {
-          const u = (phase - this.rig.stance) / (1 - this.rig.stance);
-          localX += -span + 2 * span * (u * u * (3 - 2 * u));
-          localY =
-            -Math.sin(u * Math.PI) *
-            this.rig.support.lift *
-            clamp(Math.abs(input.vx) / 220, 0.5, 1);
-        }
-      } else if (!input.grounded || this.kind === "moth") {
-        localX = (input.vy ?? 0) < 0 ? sign * 10 : sign * 8;
-        const rise = clamp((-(input.vy ?? 0) + 100) / 350);
-        localX = sign * (8 + rise * 3);
-        localY = -4 - rise * (i ? 3 : 8);
-        if (
-          combatMotion(this.lastCombat ?? "idle") &&
-          this.layers.combat.weight > 0
-        ) {
-          const tuck =
-            Math.sin(clamp(this.layers.combat.age / 0.38) * Math.PI) *
-            this.layers.combat.weight;
-          localX += (i ? -9 : 6) * tuck;
-          localY -= (i ? 4 : 9) * tuck;
-        }
-      }
-      if (input.action === "defeat") {
-        const r = this.world.root.rotation,
-          px = localX,
-          py = localY;
-        localX = this.world.root.x + Math.cos(r) * px - Math.sin(r) * py;
-        localY = this.world.root.y + Math.sin(r) * px + Math.cos(r) * py;
-      }
-      if (planted && stance) {
-        if (
-          !contact.planted ||
-          (!turning && cycle !== contact.cycle) ||
-          (!turning && phase < contact.phase) ||
-          (previous &&
-            (!input.support || input.support.id !== previous.support?.id) &&
-            Math.abs(previous.y - input.y) > 2)
-        ) {
-          contact.x = input.x + localX * input.facing;
-          contact.y = input.y;
-          if (mobile)
-            this.motes.push({
-              x: contact.x,
-              y: contact.y,
-              time: input.clock,
-              kind: "step",
-            });
-        }
-        contact.planted = true;
-        localX = (contact.x - input.x) * input.facing;
-        localY = contact.y - input.y;
-      } else {
-        contact.planted = false;
-        if (oldFeet[i] && previous) {
-          const target = {
-            x: input.x + localX * input.facing,
-            y: input.y + localY,
-          };
-          const dx = target.x - oldFeet[i].x,
-            dy = target.y - oldFeet[i].y;
-          const weight = Math.min(
-            1,
-            (Math.max(0, input.clock - previous.clock) * 900) /
-              Math.max(0.001, Math.hypot(dx, dy)),
-          );
-          localX = (oldFeet[i].x + dx * weight - input.x) * input.facing;
-          localY = oldFeet[i].y + dy * weight - input.y;
-        }
-      }
-      contact.phase = phase;
-      contact.cycle = cycle;
-      contact.stage =
-        !planted || !stance
-          ? "swing"
-          : mobile
-            ? footPhase(phase, this.rig.stance)
-            : "stance";
-      const load =
-        planted && stance
-          ? mobile
-            ? Math.max(0.1, supportWeight(phase, this.rig.stance))
-            : 1
-          : 0;
-      contact.weight = previous ? approach(contact.weight, load, dt, 28) : load;
-      targets.push({ x: localX, y: localY, stance });
-    }
-    const acceleration =
-      previous && dt > 0
-        ? clamp((input.vx - previous.vx) / dt, -1800, 1800)
-        : 0;
-    const shift = planted
-      ? balanceTarget(
-          targets[0].x,
-          targets[1].x,
-          this.contacts[0].weight,
-          this.contacts[1].weight,
-          acceleration,
-          input.facing,
-          this.rig.support,
-        )
-      : 0;
-    this.balanceX = approach(
-      this.balanceX,
-      shift,
-      dt,
-      this.rig.support.response,
+    this.supportController.constrainBody(
+      this.world.hip.x,
+      this.world.hip.y,
+      this.rig,
     );
-    const lean = -this.balanceX * this.rig.support.counterLean;
+    const lean = result.chestLean;
     const cx = this.world.torso.x,
       cy = this.world.torso.y;
     const cos = Math.cos(lean),
@@ -1511,18 +1489,7 @@ export class ActionActor {
     }
     for (const [name, t] of Object.entries(this.world))
       if (name !== "root") t.x += this.balanceX;
-    let pelvis = 0;
-    for (let i = 0; i < 2; i++) {
-      const hx = this.world.hip.x + (i ? 1 : -1) * this.rig.footSpan * 0.6;
-      const dx = targets[i].x - hx;
-      if (planted)
-        pelvis = Math.max(
-          pelvis,
-          targets[i].y -
-            Math.sqrt(Math.max(1, (this.rig.leg * 2 - 0.05) ** 2 - dx * dx)) -
-            this.world.hip.y,
-        );
-    }
+    const pelvis = result.pelvisY;
     // Translate the complete hip subtree together, never an isolated IK origin.
     for (const [name, t] of Object.entries(this.world))
       if (name !== "root") t.y += pelvis;
@@ -1535,15 +1502,32 @@ export class ActionActor {
       const hx = hip.x + sign * this.rig.footSpan * 0.6,
         hy = hip.y;
       const adjustedY = hy;
-      const ik = solveIK(
-        hx,
-        adjustedY,
-        localX,
-        localY,
-        this.rig.leg,
-        this.rig.leg,
-        this.rig.knees[i],
-      );
+      const solved = input.doll?.active
+        ? { jointX: hx, jointY: adjustedY, x: localX, y: localY }
+        : this.contactController.solve(
+            {
+              id: `foot${i}`,
+              kind: "foot",
+              anchorX: hx,
+              anchorY: adjustedY,
+              x: localX,
+              y: localY,
+              upper: this.rig.leg,
+              lower: this.rig.leg,
+              bend: this.rig.knees[i],
+              weight: this.contacts[i].weight,
+              valid: this.contactEnabled && stance && this.kind !== "moth",
+              surfaceId: input.support?.id,
+              surfaceX:
+                ((input.support?.x ?? input.x) - input.x) * input.facing,
+              surfaceY: (input.support?.y ?? input.y) - input.y,
+            },
+            previous ? input.clock - previous.clock : 0,
+          );
+      const ik = {
+        knee: { x: solved.jointX, y: solved.jointY },
+        foot: { x: solved.x, y: solved.y },
+      };
       this.hips.push({ x: hx, y: adjustedY });
       this.knees.push(ik.knee);
       this.feet.push(ik.foot);
@@ -1580,6 +1564,10 @@ export class ActionActor {
         )
         .setAlpha(this.world.root.alpha);
     }
+  }
+  setRecoveryEnabled(enabled: boolean) {
+    this.recoveryEnabled = enabled;
+    if (!enabled) this.recovery.reset();
   }
   private renderAccents(input: ActorInput) {
     const g = this.trail;

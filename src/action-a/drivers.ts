@@ -1,3 +1,4 @@
+import { GUARDIAN } from "../boss";
 import type { HeroPose } from "../art";
 import type { Enemy } from "../creature";
 import type { DewGuardian } from "../boss";
@@ -32,6 +33,7 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
   else if (since(p.brakeAt) < 0.18) choose("brake", p.brakeAt!);
   else if (Math.abs(p.vx) > 5) action = Math.abs(p.vx) > 180 ? "run" : "walk";
   return {
+    intentTarget: p.intentTarget,
     x: p.x,
     doll: p.dollPose ?? undefined,
     dollFloor: p.dollFloor,
@@ -41,6 +43,7 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
       ? `attack:${p.attackAt}`
       : undefined,
     support: p.support,
+    landingSpeed: p.landingSpeed,
     clock: p.clock,
     facing: p.facing,
     action,
@@ -59,6 +62,7 @@ export function creatureAction(
   e: Enemy,
   clock: number,
   reduced = false,
+  target?: import("./intent/controller").IntentTarget,
 ): ActorInput {
   const action: Action =
     e.hp <= 0
@@ -73,6 +77,9 @@ export function creatureAction(
   const at =
     action === "defeat" ? e.diedAt : action === "hurt" ? e.hurtAt : e.phaseAt;
   return {
+    intentTarget: e.phase !== "patrol" && e.hp > 0 ? target : undefined,
+    lockedDirection:
+      e.phase === "windup" || e.phase === "strike" ? e.attackDir : undefined,
     x: e.x,
     y: e.y,
     instance: action === "walk" ? undefined : `${e.id}:${action}:${at}`,
@@ -87,6 +94,9 @@ export function creatureAction(
           ? e.attackDir * (e.type ? 340 : 290)
           : 0,
     grounded: !e.type,
+    support: e.type
+      ? undefined
+      : { id: e.id, x: e.minX, y: e.floor, left: e.minX, right: e.maxX },
     hitDirection: e.hitDirection,
     reduced,
   };
@@ -96,6 +106,7 @@ export function guardianAction(
   clock: number,
   reduced = false,
   visible = true,
+  target?: import("./intent/controller").IntentTarget,
 ): ActorInput {
   const map: Record<string, Action> = {
     sleep: "idle",
@@ -110,6 +121,12 @@ export function guardianAction(
     defeated: "defeat",
   };
   return {
+    intentTarget: !["sleep", "defeated", "intro"].includes(b.phase)
+      ? target
+      : undefined,
+    lockedDirection: ["warn", "charge", "slam-warn", "slam"].includes(b.phase)
+      ? b.facing
+      : undefined,
     x: b.x,
     y: b.y,
     clock,
@@ -124,6 +141,13 @@ export function guardianAction(
           ? b.facing * 34
           : 0,
     grounded: true,
+    support: {
+      id: "guardian-floor",
+      x: GUARDIAN.left,
+      y: b.y,
+      left: GUARDIAN.left,
+      right: GUARDIAN.right,
+    },
     reduced,
     visible,
   };
