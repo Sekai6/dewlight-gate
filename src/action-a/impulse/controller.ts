@@ -81,6 +81,12 @@ export class ImpulseController {
       input.instance ??
       `${input.action}:${(input.clock - input.age).toFixed(4)}`;
     const transient = [
+      "skill-branch",
+      "skill-rise",
+      "skill-bloom",
+      "crystal",
+      "garden",
+      "radiance",
       "slash",
       "rising-slash",
       "air-slash",

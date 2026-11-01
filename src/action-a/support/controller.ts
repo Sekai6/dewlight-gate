@@ -163,7 +163,7 @@ export class SupportController {
         gait:
           input.grounded &&
           previous.grounded &&
-          !["dash", "hurt", "defeat"].includes(input.action)
+          !["dash", "skill-branch", "hurt", "defeat"].includes(input.action)
             ? startGait + (input.gait - startGait) * u
             : input.gait,
       });
@@ -224,11 +224,13 @@ export class SupportController {
       rig.support.enabled &&
       input.grounded &&
       Math.abs(input.vx) > 5 &&
-      !["dash", "hurt", "defeat", "bound"].includes(input.action);
+      !["dash", "skill-branch", "hurt", "defeat", "bound"].includes(
+        input.action,
+      );
     const planted =
       !input.doll?.active &&
       input.grounded &&
-      !["dash", "defeat"].includes(input.action) &&
+      !["dash", "skill-branch", "defeat"].includes(input.action) &&
       rig.kind !== "moth" &&
       input.enabled;
     const dt = previous ? Math.max(0, input.clock - previous.clock) : 0;

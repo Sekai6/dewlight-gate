@@ -27,6 +27,7 @@ import type { DollHitState } from "./doll-hit/state";
 import { DollPoseSolver } from "./doll-hit/solver.ts";
 import { approach, solveArm } from "./balance.ts";
 export interface ActorInput {
+  skillPose?: import("../action-skill/types").SkillPose;
   intentTarget?: IntentTarget;
   lockedDirection?: number;
   doll?: Readonly<DollHitState>;
@@ -526,7 +527,7 @@ export class ActionActor {
         previous &&
         previous.grounded &&
         input.grounded &&
-        !["dash", "hurt", "defeat"].includes(input.action)
+        !["dash", "skill-branch", "hurt", "defeat"].includes(input.action)
           ? Math.abs(input.x - previous.x - supportDx)
           : 0;
       this.gait += distance / this.rig.stride;
@@ -554,6 +555,15 @@ export class ActionActor {
         });
       }
       const combatActions: Action[] = [
+        "skill-branch",
+        "skill-rise",
+        "skill-bloom",
+        "crystal-warn",
+        "crystal",
+        "garden-warn",
+        "garden",
+        "radiance-warn",
+        "radiance",
         "slash",
         "rising-slash",
         "air-slash",
@@ -726,7 +736,9 @@ export class ActionActor {
             ...input,
             target: input.intentTarget,
             suppressed:
-              !!input.doll?.active || this.recovery.output.hand.weight > 0,
+              !!input.doll?.active ||
+              input.skillPose?.phase === "release" ||
+              this.recovery.output.hand.weight > 0,
           },
           this.kind,
         );
@@ -841,8 +853,20 @@ export class ActionActor {
         // Re-sample the authored path in simulation time, then solve the same rigid arm.
         // Interpolated shoulder anchors follow the already constrained body, not a
         // straight line between blade tips. This preserves the arc at 10/20 fps.
-        const from = sameAttack ? Math.max(0.06, input.age - dt) : input.age;
-        const end = Math.min(input.age, 0.24);
+        const start = input.skillPose
+          ? input.skillPose.id === "branch"
+            ? 0.09
+            : 0.12
+          : 0.06;
+        const finish = input.skillPose
+          ? input.skillPose.id === "branch"
+            ? 0.26
+            : input.skillPose.id === "rise"
+              ? 0.34
+              : 0.53
+          : 0.24;
+        const from = sameAttack ? Math.max(start, input.age - dt) : input.age;
+        const end = Math.min(input.age, finish);
         const count = Math.min(18, Math.max(1, Math.ceil((end - from) * 120)));
         for (let i = 0; i <= count && from <= end; i++) {
           const age = from + ((end - from) * i) / count;

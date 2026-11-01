@@ -1,4 +1,6 @@
 export interface Save {
+  difficulty?: "normal" | "challenge";
+  skillTutorial?: boolean;
   version: 2;
   checkpoint: number;
   beads: string[];
@@ -12,6 +14,8 @@ export interface Save {
 }
 export const fresh = (): Save => ({
   version: 2,
+  difficulty: "normal",
+  skillTutorial: false,
   checkpoint: 0,
   beads: [],
   stones: [],
@@ -58,6 +62,8 @@ export function parseSave(raw: string | null): Save | null {
       return null;
     return {
       ...s,
+      difficulty: s.difficulty === "challenge" ? "challenge" : "normal",
+      skillTutorial: s.skillTutorial === true,
       stones: [...new Set<number>(s.stones)],
       beads: [...new Set<string>(s.beads)],
       lenses: [...new Set<string>(s.lenses ?? [])],

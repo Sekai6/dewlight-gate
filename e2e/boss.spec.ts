@@ -129,7 +129,7 @@ test("arena restart clears hazards, restores resources and preserves light progr
     s.guardian.wave = [{ x: 2500, dir: 1, hit: false }];
     s.keys.J.isDown = true;
   });
-  await page.keyboard.press("r");
+  await page.keyboard.press("t");
   const state = await page.evaluate(() => {
     const s = (window as any).dewlight.scene.getScene("journey");
     return {

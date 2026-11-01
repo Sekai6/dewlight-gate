@@ -5,6 +5,7 @@ import {
   stepGuardian,
   hitGuardian,
   bindGuardian,
+  GUARDIAN,
 } from "../src/boss.ts";
 test("guardian preserves safe opening, warns before a locked-direction charge, then recovers", () => {
   const b = createGuardian();
@@ -25,10 +26,10 @@ test("ordinary hits work, openings reward damage, and roots can be jumped or int
   const b = createGuardian();
   b.phase = "stalk";
   assert.equal(hitGuardian(b, 1), true);
-  assert.equal(b.hp, 35);
+  assert.equal(b.hp, GUARDIAN.hp - 1);
   b.phase = "recover";
   hitGuardian(b, 2);
-  assert.equal(b.hp, 33);
+  assert.equal(b.hp, GUARDIAN.hp - 3);
   b.phase = "stalk";
   b.attacks = 1;
   b.until = 3;
@@ -58,7 +59,8 @@ test("guardian binding interrupts charge and repeat hits cannot duplicate defeat
   const x = b.x;
   stepGuardian(b, 1.2, 0.2, { x: 2500, y: 1100 });
   assert.equal(b.x, x);
-  for (let n = 0; n < 18; n++) assert.equal(hitGuardian(b, 2 + n), true);
+  for (let n = 0; n < Math.ceil((GUARDIAN.hp - 1) / 2); n++)
+    assert.equal(hitGuardian(b, 2 + n), true);
   assert.equal(b.phase, "defeated");
   assert.equal(hitGuardian(b, 20), false);
   assert.equal(createGuardian(true).phase, "defeated");
