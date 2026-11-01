@@ -16,7 +16,10 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
   if (p.dollPose?.active) choose("hurt", p.hurtAt);
   else if (since(p.hurtAt) >= 0 && since(p.hurtAt) < 0.24)
     choose("hurt", p.hurtAt);
-  else if (since(p.dashAt) >= 0 && since(p.dashAt) < 0.19)
+  else if (p.skillPose) {
+    action = `skill-${p.skillPose.id}`;
+    age = p.skillPose.age;
+  } else if (since(p.dashAt) >= 0 && since(p.dashAt) < 0.19)
     choose("dash", p.dashAt);
   else if (since(p.attackAt) >= 0 && since(p.attackAt) < 0.38) {
     // attackStyle is stable for this attack; landing must not restart its clip.
@@ -33,15 +36,18 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
   else if (since(p.brakeAt) < 0.18) choose("brake", p.brakeAt!);
   else if (Math.abs(p.vx) > 5) action = Math.abs(p.vx) > 180 ? "run" : "walk";
   return {
+    skillPose: p.skillPose,
     intentTarget: p.intentTarget,
     x: p.x,
     doll: p.dollPose ?? undefined,
     dollFloor: p.dollFloor,
     attackSegment: p.attackStyle ? 2 : 1,
     y: p.y,
-    instance: ["slash", "rising-slash", "air-slash"].includes(action)
-      ? `attack:${p.attackAt}`
-      : undefined,
+    instance: p.skillPose
+      ? `skill:${p.skillPose.instance}`
+      : ["slash", "rising-slash", "air-slash"].includes(action)
+        ? `attack:${p.attackAt}`
+        : undefined,
     support: p.support,
     landingSpeed: p.landingSpeed,
     clock: p.clock,
@@ -93,7 +99,7 @@ export function creatureAction(
         : action === "strike"
           ? e.attackDir * (e.type ? 340 : 290)
           : 0,
-    grounded: !e.type,
+    grounded: !e.type && e.liftVy === undefined,
     support: e.type
       ? undefined
       : { id: e.id, x: e.minX, y: e.floor, left: e.minX, right: e.maxX },
@@ -119,12 +125,30 @@ export function guardianAction(
     recover: "recover",
     bound: "bound",
     defeated: "defeat",
+    "crystal-warn": "crystal-warn",
+    crystal: "crystal",
+    "garden-warn": "garden-warn",
+    garden: "garden",
+    "radiance-warn": "radiance-warn",
+    radiance: "radiance",
+    "combo-gap": "recover",
   };
   return {
     intentTarget: !["sleep", "defeated", "intro"].includes(b.phase)
       ? target
       : undefined,
-    lockedDirection: ["warn", "charge", "slam-warn", "slam"].includes(b.phase)
+    lockedDirection: [
+      "warn",
+      "charge",
+      "slam-warn",
+      "slam",
+      "crystal-warn",
+      "crystal",
+      "garden-warn",
+      "garden",
+      "radiance-warn",
+      "radiance",
+    ].includes(b.phase)
       ? b.facing
       : undefined,
     x: b.x,

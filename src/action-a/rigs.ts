@@ -1,7 +1,17 @@
 import type { Bone, Clip, Track } from "./core";
 import type { SupportProfile } from "./balance";
+import { skillClip } from "./skill-clips.ts";
 export type ActorKind = "hero" | "moss" | "moth" | "guardian";
 export const ACTIONS = [
+  "skill-branch",
+  "skill-rise",
+  "skill-bloom",
+  "crystal-warn",
+  "crystal",
+  "garden-warn",
+  "garden",
+  "radiance-warn",
+  "radiance",
   "idle",
   "walk",
   "run",
@@ -296,6 +306,11 @@ export function getClip(rig: Rig, action: Action): Clip {
   const key = `${rig.kind}:${action}`;
   const cached = cache.get(key);
   if (cached) return cached;
+  const authoredSkill = skillClip(action, rig.kind);
+  if (authoredSkill) {
+    cache.set(key, authoredSkill);
+    return authoredSkill;
+  }
   const hero = rig.kind === "hero",
     boss = rig.kind === "guardian";
   const durations: Partial<Record<Action, number>> = {

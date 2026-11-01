@@ -6,13 +6,21 @@
 
 ![晨露庭院与安全开场](docs/media/opening.png)
 
-## v1.3.0 / ACTION-A SUPPORT ? RECOVERY ? CONTACT ? IMPULSE ? INTENT
+## v1.4.0 · Action-skill 剑舞连携
 
-[Release notes](docs/RELEASE-v1.3.0.md) ? [Round 6 architecture](docs/ACTION-A-ROUND6.md) ? [Round 7 architecture and validation](docs/ACTION-A-ROUND7.md)
+在 v1.3.0 基线上加入 Q「折光穿枝」、R「藤芽升锋」、F「露华回旋」，并为守卫增加折冠散晶、根庭绽刺、露冠辉落与普通／挑战难度。安全庭院提供可重复、可跳过的训练光影。
+
+运行 `npm run dev`：游戏 `http://127.0.0.1:5173/`，技能实验室 `http://127.0.0.1:5173/?action-skill`，骨骼预览 `http://127.0.0.1:5173/?action-a`。两个开发入口均从生产构建移除。
+
+[技能架构与参数](docs/ACTION-SKILL.md) · [验收报告](docs/ACTION-SKILL-ACCEPTANCE.md) · [版本说明与对照下载](https://github.com/Sekai6/dewlight-gate/releases/tag/v1.4.0)。对照包解压后打开 review.html，可同步观看正常及四分之一速度录像。
+
+## v1.3.0 / ACTION-A SUPPORT · RECOVERY · CONTACT · IMPULSE · INTENT
+
+[Release notes](docs/RELEASE-v1.3.0.md) · [Round 6 architecture](docs/ACTION-A-ROUND6.md) · [Round 7 architecture and validation](docs/ACTION-A-ROUND7.md)
 
 ## v1.2.0 / ACTION-A-DOLL-HIT
 
-当前工作区新增尚未发布的 [第六轮：承重与复起](docs/ACTION-A-ROUND6.md)，提供 ACTION-A-SUPPORT 和 ACTION-A-RECOVERY。在线试玩仍为 v1.2.0。
+第六轮承重与复起及第七轮接触、发力、注意力已随 v1.3.0 发布。以下保留 v1.2.0 的布娃娃系统说明。
 
 本版包含 [ACTION-A 第五轮](docs/ACTION-A-ROUND5.md) 和 [ACTION-A-DOLL-HIT 分级受击 / 布娃娃击飞](docs/ACTION-A-DOLL-HIT.md)。主控受到不同攻击时会失衡、击飞、翻滚并起身；短暂失控后按空格或 Shift 可以受身。保留既有存档格式。详见 [版本说明](docs/RELEASE-v1.2.0.md)。
 
@@ -44,10 +52,13 @@
 | J | 近战；Boss 战中可按住连击 |
 | Shift | 冲刺，短暂受伤保护 |
 | K | 藤蔓束缚敌人或固定叶台 |
+| Q | 折光穿枝，20 光，3.5 秒冷却，地面或空中 |
+| R | 藤芽升锋，25 光，5 秒冷却，每次离地一次 |
+| F | 露华回旋，35 光，8 秒冷却，仅空中起手 |
 | E | 交互、接通灯环、唤醒石碑 |
 | Tab / Esc | 旅程页 / 暂停 |
 | H | 显示或收起寻路引导 |
-| R | Boss 战中回入口重试 |
+| T | Boss 战中回入口重试 |
 
 Boss 普通命中削 1 点生命，疲惫或束缚时削 2 点。红色箭纹预告冲锋，金色地纹预告可跳过的根浪；K 能打断并创造破绽。第一碑后到发光门按 E 进入下一地区。
 

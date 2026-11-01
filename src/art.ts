@@ -645,6 +645,7 @@ function paintGate(c: C) {
 }
 
 export interface HeroPose {
+  skillPose?: import("./action-skill/types").SkillPose;
   intentTarget?: import("./action-a/intent/controller").IntentTarget;
   dollPose?: Readonly<DollHitState> | null;
   dollFloor?: number;
@@ -874,6 +875,7 @@ export class ArtDirector {
         {
           ...pose,
           intentTarget: pose.intentTarget,
+          skillPose: pose.skillPose,
           dollPose: pose.dollPose,
           dollFloor: pose.dollFloor,
           landAt: this.landedAt,

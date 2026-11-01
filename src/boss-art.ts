@@ -91,6 +91,57 @@ export class GuardianArt {
       g.fillStyle(0xb4dcad, 0.85);
       g.fillTriangle(wave.x - 13, y, wave.x, y - 30, wave.x + 13, y);
     }
+    for (const h of b.hazards) {
+      const waiting = time < h.at;
+      const alpha = waiting
+        ? 0.35 +
+          0.35 *
+            Math.min(1, (time - b.phaseAt) / Math.max(0.1, h.at - b.phaseAt))
+        : 0.9;
+      if (h.kind === "crystal") {
+        if (waiting) {
+          g.lineStyle(1.5, 0xefbf8e, alpha);
+          g.lineBetween(h.x, h.y, h.x + h.vx * 1.8, h.y + h.vy * 1.8);
+          g.strokeCircle(h.x + h.vx * 0.25, h.y + h.vy * 0.25, h.radius);
+        } else {
+          g.fillStyle(0xa9d8d1, 0.75);
+          g.fillTriangle(
+            h.x - b.facing * 17,
+            h.y - 9,
+            h.x + b.facing * 19,
+            h.y,
+            h.x - b.facing * 17,
+            h.y + 9,
+          );
+          g.lineStyle(1.5, 0xffdb9e, 0.95);
+          g.lineBetween(h.x - b.facing * 10, h.y, h.x + b.facing * 19, h.y);
+        }
+      } else {
+        const height = h.kind === "radiance" ? 380 : 90;
+        g.fillStyle(waiting ? 0xeab980 : 0x91d4bb, waiting ? 0.12 : 0.35);
+        g.fillRect(h.x - h.radius, h.y - height, h.radius * 2, height);
+        g.lineStyle(2, 0xffd99f, alpha);
+        g.strokeRect(h.x - h.radius, h.y - height, h.radius * 2, height);
+        g.strokeEllipse(h.x, h.y - 3, h.radius * 2, 13);
+        if (waiting) {
+          g.lineBetween(h.x - 9, h.y - 35, h.x, h.y - 20);
+          g.lineBetween(h.x + 9, h.y - 35, h.x, h.y - 20);
+        } else if (h.kind === "garden") {
+          for (let n = -1; n <= 1; n++)
+            g.fillTriangle(
+              h.x + n * 18 - 9,
+              h.y,
+              h.x + n * 18,
+              h.y - 85 + Math.abs(n) * 20,
+              h.x + n * 18 + 9,
+              h.y,
+            );
+        } else {
+          g.lineStyle(8, 0xffedbc, reduced ? 0.5 : 0.8);
+          g.lineBetween(h.x, h.y - height, h.x, h.y);
+        }
+      }
+    }
     if (b.phase === "bound") {
       g.lineStyle(3, 0xc5e7ab, 0.9);
       for (let n = 0; n < 3; n++) g.strokeEllipse(x, y - 60 + n * 15, 105, 22);
@@ -106,7 +157,7 @@ export class GuardianArt {
         dead
           ? "露冠守卫 · 已苏醒"
           : active
-            ? `露冠守卫 · ${b.hp}/${GUARDIAN.hp}\n${warning ? "→ 冲锋将至 · 跳起或 Shift 穿过" : b.phase === "slam-warn" ? "↑ 根浪将至 · 空格跳过，K 可打断" : b.phase === "recover" ? "✧ 疲惫破绽 · J 双倍伤害" : b.phase === "bound" ? "✧ 藤蔓破绽 · J 双倍伤害" : "按住 J 连击 · K 打断 · R 重试"}`
+            ? `露冠守卫 · ${b.difficulty === "challenge" ? "挑战" : "普通"} · ${b.hp}/${b.maxHp}\n${warning ? "→ 冲锋将至 · 跳起或 Shift 穿过" : b.phase === "slam-warn" ? "↑ 根浪将至 · 空格跳过，K 可打断" : b.phase === "crystal-warn" ? "◇ 折冠散晶 · 穿过晶刃间隙" : b.phase === "garden-warn" ? "♧ 根庭绽刺 · 离开藤芽标记" : b.phase === "radiance-warn" ? "↓ 露冠辉落 · 离开竖直光柱" : b.phase === "recover" ? "✧ 疲惫破绽 · J 双倍伤害" : b.phase === "bound" ? "✧ 藤蔓破绽 · J 双倍伤害" : "Q / R / F 剑舞 · K 打断 · T 重试"}`
             : "沉睡的露冠守卫",
       );
     if (active) {
@@ -114,13 +165,7 @@ export class GuardianArt {
       const center = (GUARDIAN.left + GUARDIAN.right) / 2;
       g.fillRoundedRect(center - 150, y - 190, 300, 10, 5);
       g.fillStyle(warning ? 0xf3bd91 : 0xc3deb0, 1);
-      g.fillRoundedRect(
-        center - 148,
-        y - 188,
-        (296 * b.hp) / GUARDIAN.hp,
-        6,
-        3,
-      );
+      g.fillRoundedRect(center - 148, y - 188, (296 * b.hp) / b.maxHp, 6, 3);
       const ready = time >= b.bindReadyAt;
       g.lineStyle(2, ready ? 0xc5edb7 : 0x6c8c82, 0.85);
       g.strokeCircle(x, y - 110, 9);

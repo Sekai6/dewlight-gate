@@ -22,6 +22,16 @@ export interface Enemy {
   minX: number;
   maxX: number;
   gait: number;
+  liftVy?: number;
+  liftOffset?: number;
+}
+
+export function liftCreature(e: Enemy) {
+  if (e.hp <= 0) return;
+  e.liftVy = e.type ? -170 : -340;
+  e.liftOffset = Math.min(0, e.liftOffset ?? 0);
+  e.phase = "recover";
+  e.warn = 0;
 }
 
 const clamp = (v: number, min: number, max: number) =>
@@ -47,6 +57,21 @@ export function stepCreature(
   player: { x: number; y: number },
 ) {
   if (e.hp <= 0) return false;
+  if (e.liftVy !== undefined) {
+    e.liftVy += 1000 * dt;
+    e.liftOffset = (e.liftOffset ?? 0) + e.liftVy * dt;
+    e.y = e.floor - (e.type ? 44 : 0) + e.liftOffset;
+    e.phase = "recover";
+    e.phaseAt = time;
+    e.warn = 0;
+    e.cool = time + 0.65;
+    if (e.liftOffset >= 0 && e.liftVy > 0) {
+      e.liftVy = undefined;
+      e.liftOffset = 0;
+      e.y = e.floor - (e.type ? 44 : 0);
+    }
+    return false;
+  }
   if (e.bound > time) {
     // Binding cancels the telegraph. Release cannot cause an unannounced strike.
     e.phase = "patrol";
