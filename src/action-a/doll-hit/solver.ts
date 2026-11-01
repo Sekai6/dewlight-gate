@@ -1,3 +1,4 @@
+import type { ContactController } from "../contact/controller.ts";
 import { clamp, solveIK } from "../core.ts";
 export interface DollPoint {
   x: number;
@@ -41,6 +42,7 @@ export class DollPoseSolver {
     weight: number,
     floor: number,
     out: { jointX: number; jointY: number; x: number; y: number },
+    contacts?: ContactController,
   ) {
     const p = this.output.points[index];
     let remaining = Math.min(dt, 0.25);
@@ -67,7 +69,29 @@ export class DollPoseSolver {
     }
     const x = targetX + (p.x - targetX) * weight,
       y = targetY + (p.y - targetY) * weight;
-    const ik = solveIK(anchorX, anchorY, x, y, upper, lower, bend);
+    const result = contacts?.solve(
+      {
+        id:
+          index === 0 ? "grip" : index === 1 ? "free-hand" : `foot${index - 2}`,
+        kind: index === 0 ? "grip" : "inertia",
+        anchorX,
+        anchorY,
+        x,
+        y,
+        upper,
+        lower,
+        bend,
+        weight,
+        valid: true,
+      },
+      dt,
+    );
+    const ik = result
+      ? {
+          knee: { x: result.jointX, y: result.jointY },
+          foot: { x: result.x, y: result.y },
+        }
+      : solveIK(anchorX, anchorY, x, y, upper, lower, bend);
     out.jointX = ik.knee.x;
     out.jointY = ik.knee.y;
     out.x = ik.foot.x;

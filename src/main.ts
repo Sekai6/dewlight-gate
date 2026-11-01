@@ -1,3 +1,7 @@
+import {
+  IntentSelector,
+  type IntentTarget,
+} from "./action-a/intent/controller";
 import Phaser from "phaser";
 import "./style.css";
 import { WebGPUCompositor } from "./webgpu";
@@ -420,6 +424,40 @@ window.addEventListener("beforeunload", () => {
 });
 
 class Journey extends Phaser.Scene {
+  private intentSelector = new IntentSelector();
+  intentTarget?: IntentTarget;
+  private updateAttention() {
+    const clear = (x: number) =>
+      !rooms.some(
+        (room, i) =>
+          !gateOpen(i) &&
+          room.gate > Math.min(this.x, x) &&
+          room.gate < Math.max(this.x, x),
+      );
+    const candidates: IntentTarget[] = this.enemies.map((e) => ({
+      id: String(e.id),
+      x: e.x,
+      y: e.y,
+      threat: e.phase === "windup" || e.phase === "strike",
+      valid: e.hp > 0 && clear(e.x),
+    }));
+    const b = this.guardian;
+    candidates.push({
+      id: "guardian",
+      x: b.x,
+      y: b.y,
+      threat: ["warn", "charge", "slam-warn", "slam"].includes(b.phase),
+      valid: !["sleep", "defeated", "intro"].includes(b.phase) && clear(b.x),
+    });
+    this.intentTarget = this.intentSelector.choose(
+      this.clock,
+      this.x,
+      this.y,
+      this.facing,
+      candidates,
+    );
+  }
+
   framing = new JourneyCamera();
   art!: ArtDirector;
   creatures!: CreatureDirector;
@@ -473,6 +511,7 @@ class Journey extends Phaser.Scene {
   private attackInputAt = -999;
   bindAt = -999;
   bindTarget = { x: 0, y: 0 };
+  landingSpeed = 0;
   hurtAt = -999;
   hitDirection = 0;
   readonly doll = new DollHitController();
@@ -511,6 +550,8 @@ class Journey extends Phaser.Scene {
   guardianArt!: GuardianArt;
   resetAnimations() {
     this.doll.reset();
+    this.intentSelector.reset();
+    this.intentTarget = undefined;
     this.art?.reset();
     this.creatures?.actors.forEach((actor) => actor.reset());
     this.guardianArt?.actor.reset();
@@ -1307,6 +1348,7 @@ class Journey extends Phaser.Scene {
       this.vy -= Math.min(wind.lift * dt, Math.max(0, this.vy + 310));
     }
     this.y += this.vy * dt;
+    const wasGrounded = this.onGround;
     this.onGround = false;
     this.groundIndex = -1;
     if (this.vy >= 0) {
@@ -1327,6 +1369,7 @@ class Journey extends Phaser.Scene {
         const p = platforms[landing];
         if (this.vy > 180)
           this.effects.burst(this.x, p.y, now, "land", reduced);
+        if (!wasGrounded) this.landingSpeed = this.vy;
         this.y = p.y;
         this.vy = locked ? this.doll.land(this.vy) : 0;
         this.onGround = this.vy >= 0;
@@ -1716,6 +1759,7 @@ class Journey extends Phaser.Scene {
     const bg = this.bg;
     bg.setPosition(cam.scrollX, cam.scrollY).setScale(1 / cam.zoom);
     bg.clear();
+    this.updateAttention();
     this.art.draw(
       this,
       cam,
@@ -1732,6 +1776,7 @@ class Journey extends Phaser.Scene {
       this.clock,
       this.started && mode !== "title" && this.x < 6000,
       reduced,
+      { id: "hero", x: this.x, y: this.y, threat: true },
     );
     this.guideArt.draw(
       this.clock,
@@ -1768,6 +1813,7 @@ class Journey extends Phaser.Scene {
       reduced,
       this.started && mode !== "title",
       this.x,
+      this.y,
     );
     const g = this.g;
     g.setVisible(this.started && mode !== "title");

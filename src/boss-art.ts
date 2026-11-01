@@ -34,12 +34,18 @@ export class GuardianArt {
       .setOrigin(0.5)
       .setDepth(11);
   }
-  draw(b: DewGuardian, time: number, visible: boolean, reduced: boolean) {
+  draw(
+    b: DewGuardian,
+    time: number,
+    visible: boolean,
+    reduced: boolean,
+    target?: import("./action-a/intent/controller").IntentTarget,
+  ) {
     const g = this.g;
     g.clear();
     this.title.setVisible(visible);
     this.hit.setVisible(visible && time < b.hurtUntil);
-    this.actor.draw(guardianAction(b, time, reduced, visible));
+    this.actor.draw(guardianAction(b, time, reduced, visible, target));
     if (!visible) return;
     const dead = b.phase === "defeated",
       warning = b.phase === "warn";

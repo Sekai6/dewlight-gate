@@ -645,9 +645,17 @@ function paintGate(c: C) {
 }
 
 export interface HeroPose {
+  intentTarget?: import("./action-a/intent/controller").IntentTarget;
   dollPose?: Readonly<DollHitState> | null;
   dollFloor?: number;
-  support?: { id: string | number; x: number; y: number };
+  support?: {
+    id: string | number;
+    x: number;
+    y: number;
+    left?: number;
+    right?: number;
+  };
+  landingSpeed?: number;
   groundIndex?: number;
   turnAt?: number;
   brakeAt?: number;
@@ -865,11 +873,18 @@ export class ArtDirector {
       heroAction(
         {
           ...pose,
+          intentTarget: pose.intentTarget,
           dollPose: pose.dollPose,
           dollFloor: pose.dollFloor,
           landAt: this.landedAt,
           support: platform
-            ? { id: pose.groundIndex!, x: platform.x, y: platform.y }
+            ? {
+                id: pose.groundIndex!,
+                x: platform.x,
+                y: platform.y,
+                left: platform.x,
+                right: platform.x + platform.w,
+              }
             : undefined,
         },
         reduced,

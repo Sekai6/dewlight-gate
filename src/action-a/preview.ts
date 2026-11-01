@@ -21,7 +21,7 @@ const el = <T extends HTMLElement>(id: string) =>
 // The snapshot is local review material; failure leaves the standalone preview usable.
 let BaselineActor: typeof ActionActor | undefined;
 try {
-  const url = "/artifacts/action-a-doll-hit/baseline/src/action-a/actor.ts";
+  const url = "/artifacts/action-a-round7/baseline/src/action-a/actor.ts";
   if ((await fetch(url, { method: "HEAD" })).ok) {
     BaselineActor = (await import(/* @vite-ignore */ url)).ActionActor;
   }
@@ -38,13 +38,59 @@ controls.innerHTML =
         `<label><input type="checkbox" id="layer-${name}" checked>${name}</label>`,
     )
     .join("") +
-  `<label><input id="moving-attack" type="checkbox">&#31227;&#21160;&#25915;&#20987;</label><label><input id="compare" type="checkbox" ${BaselineActor ? "" : "disabled"}>Round 5 baseline</label>`;
-controls.innerHTML += `<label>Replay <select id="replay"><option value="off">Manual</option><option value="combo">Standing combo</option><option value="moving">Moving combo</option><option value="air">Air / land combo</option><option value="hurt">Hit interrupt</option><option value="enemy">Enemy stages</option><option value="locomotion">Start / stop / turn</option></select></label>`;
+  `<label><input id="moving-attack" type="checkbox">&#31227;&#21160;&#25915;&#20987;</label><label><input id="compare" type="checkbox" ${BaselineActor ? "" : "disabled"}>Round 6 workspace baseline</label>`;
+controls.innerHTML += `<label>Replay <select id="replay"><option value="off">Manual</option><option value="combo">Standing combo</option><option value="moving">Moving combo</option><option value="air">Air / land combo</option><option value="hurt">Hit interrupt</option><option value="enemy">Enemy stages</option><option value="locomotion">Start / stop / turn</option><option value="platform">Moving platform combat</option><option value="edge">Edge recovery</option></select></label>`;
 document.querySelector("#stage")!.before(controls);
 controls.insertAdjacentHTML(
   "beforeend",
   `<label>受击 <select id="doll-kind"><option value="off">关闭</option><option value="ground">轻击</option><option value="flying">飞行扑击</option><option value="charge">冲锋击飞</option><option value="wave">根浪掀飞</option></select></label><label><input id="doll-air" type="checkbox">空中起始</label><label><input id="doll-auto" type="checkbox">自动演示受身</label><button id="doll-recover">受身（空格 / Shift）</button>`,
 );
+controls.insertAdjacentHTML(
+  "beforeend",
+  `<label><input id="layer-recovery" type="checkbox" checked>RECOVERY</label>`,
+);
+controls.insertAdjacentHTML(
+  "beforeend",
+  ["contact", "impulse", "intent"]
+    .map(
+      (name) =>
+        `<label><input id="module-${name}" type="checkbox" checked>${name.toUpperCase()}</label>`,
+    )
+    .join("") +
+    '<label>Attention <select id="attention"><option value="off">None</option><option value="front">Front threat</option><option value="orbit">Switch / behind</option></select></label>',
+);
+const impulseGraph = document.createElement("canvas");
+impulseGraph.width = 600;
+impulseGraph.height = 90;
+impulseGraph.style.cssText =
+  "width:min(600px,100%);height:90px;display:block;background:#102c32";
+impulseGraph.title =
+  "IMPULSE: hip / chest / shoulder / head / ornament (normalized)";
+document.querySelector("#diagnostics")!.before(impulseGraph);
+const graphValues = new Float32Array(5 * 240);
+let graphIndex = 0,
+  graphClock = -1;
+function plotImpulse(time: number, values: number[]) {
+  if (time === graphClock) return;
+  graphClock = time;
+  values.forEach((v, i) => (graphValues[i * 240 + graphIndex] = v));
+  graphIndex = (graphIndex + 1) % 240;
+  const ctx = impulseGraph.getContext("2d")!;
+  ctx.clearRect(0, 0, 600, 90);
+  ["#eacb8c", "#a6e1c8", "#f5a28e", "#9abbea", "#d4a8df"].forEach(
+    (color, i) => {
+      ctx.strokeStyle = color;
+      ctx.beginPath();
+      for (let j = 0; j < 240; j++) {
+        const x = j * 2.5,
+          y = 45 - graphValues[i * 240 + ((graphIndex + j) % 240)] * 32;
+        if (j) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+    },
+  );
+}
 const doll = new DollHitController();
 let dollY = 360,
   dollVx = 0,
@@ -196,6 +242,12 @@ class Studio extends Phaser.Scene {
       actor.reset();
       this.baseline?.[kind].reset();
     }
+    for (const name of ["contact", "impulse", "intent"] as const)
+      actor.setModuleEnabled(
+        name,
+        el<HTMLInputElement>(`module-${name}`).checked,
+      );
+    actor.setRecoveryEnabled(el<HTMLInputElement>("layer-recovery").checked);
     actor.setDebug(el<HTMLInputElement>("bones").checked);
     for (const name of [
       "locomotion",
@@ -306,9 +358,45 @@ class Studio extends Phaser.Scene {
       this.rootTrace.lineStyle(2, 0xb1efdc, 0.9);
       this.rootTrace.strokeCircle(x, dollY, 3);
     }
+    if (replay === "platform") {
+      const shift = Math.sin(clock) * 45;
+      Object.assign(input, {
+        y: 360 + Math.sin(clock) * 15,
+        support: {
+          id: "studio-platform",
+          x: shift,
+          y: 360 + Math.sin(clock) * 15,
+          left: 0,
+          right: 1400,
+        },
+      });
+      input.x = x + shift;
+    } else if (dollPreview || replay === "edge") {
+      Object.assign(input, {
+        support: {
+          id: "studio-floor",
+          x: 0,
+          y: 360,
+          left: replay === "edge" ? x - 10 : 0,
+          right: replay === "edge" ? x + 4 : 1400,
+        },
+      });
+    }
+    const attention = el<HTMLSelectElement>("attention").value;
+    if (attention !== "off")
+      Object.assign(input, {
+        intentTarget: {
+          id: "preview-threat",
+          x:
+            input.x +
+            (attention === "orbit" ? Math.cos(clock * 2) : input.facing) * 120,
+          y: input.y - 70,
+          threat: true,
+        },
+      });
     const compare = el<HTMLInputElement>("compare").checked;
     const separation = kind === "guardian" ? 115 : 65;
-    actor.draw({ ...input, x: x + (compare ? separation : 0) });
+    actor.draw({ ...input, x: input.x + (compare ? separation : 0) });
     if (this.baseline) {
       Object.entries(this.baseline).forEach(([k, a]) =>
         a.setVisible(compare && k === kind),
@@ -316,17 +404,26 @@ class Studio extends Phaser.Scene {
       if (compare) {
         const old = this.baseline[kind];
         old.setDebug(el<HTMLInputElement>("bones").checked);
-        old.draw({ ...input, x: x - separation });
+        old.draw({ ...input, x: input.x - separation });
       }
     }
     const s = actor.snapshot();
+    plotImpulse(clock, [
+      s.impulse.hip / 2.4,
+      s.impulse.chest / 0.12,
+      s.impulse.shoulder / 0.16,
+      s.impulse.head / 0.08,
+      s.impulse.ornament / 0.22,
+    ]);
     el("diagnostics").textContent =
       (dollPreview
         ? `DOLL-HIT ${doll.state.phase} | age=${dollTime.toFixed(3)} | velocity=${dollVx.toFixed(1)},${dollVy.toFixed(1)} | recovery=${doll.state.recoverReady} | bounces=${doll.state.bounces} | constraint=${s.doll?.constraintError ?? 0}\n`
         : "") +
       (compare
-        ? "左：第五轮基线 / 右：ACTION-A-DOLL-HIT（同输入、同模拟时间）\n"
+        ? "Left: Round 6 workspace / Right: Round 7 (same input and simulation time)\n"
         : "") +
+      `IMPULSE=${JSON.stringify(s.impulse)} | INTENT=${JSON.stringify(s.intent)} | CONTACT=${JSON.stringify(s.constraints)}\n` +
+      `RECOVERY=${JSON.stringify(s.recovery)} | anchors=${JSON.stringify(s.contacts.map((c) => ({ id: c.surfaceId, x: c.localX, y: c.localY, stage: c.stage, weight: c.weight })))}\n` +
       s.layers
         .map(
           (l) =>

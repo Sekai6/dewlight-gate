@@ -22,6 +22,7 @@ export class CreatureDirector {
     reduced: boolean,
     visible: boolean,
     playerX: number,
+    playerY?: number,
   ) {
     this.ink.clear();
     this.actors.forEach((i) => i.setVisible(false));
@@ -47,7 +48,16 @@ export class CreatureDirector {
           e.type ? "moth" : "moss",
           4,
         );
-      actor.draw(creatureAction(e, time, reduced));
+      actor.draw(
+        creatureAction(
+          e,
+          time,
+          reduced,
+          playerY === undefined
+            ? undefined
+            : { id: "hero", x: playerX, y: playerY, threat: true },
+        ),
+      );
       if (hurt && !dead) {
         const flash = Math.max(0, 1 - (time - e.hurtAt) / 0.2);
         g.lineStyle(1.4, 0xf7efd0, flash * 0.65);

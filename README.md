@@ -6,7 +6,13 @@
 
 ![晨露庭院与安全开场](docs/media/opening.png)
 
+## v1.3.0 / ACTION-A SUPPORT ? RECOVERY ? CONTACT ? IMPULSE ? INTENT
+
+[Release notes](docs/RELEASE-v1.3.0.md) ? [Round 6 architecture](docs/ACTION-A-ROUND6.md) ? [Round 7 architecture and validation](docs/ACTION-A-ROUND7.md)
+
 ## v1.2.0 / ACTION-A-DOLL-HIT
+
+当前工作区新增尚未发布的 [第六轮：承重与复起](docs/ACTION-A-ROUND6.md)，提供 ACTION-A-SUPPORT 和 ACTION-A-RECOVERY。在线试玩仍为 v1.2.0。
 
 本版包含 [ACTION-A 第五轮](docs/ACTION-A-ROUND5.md) 和 [ACTION-A-DOLL-HIT 分级受击 / 布娃娃击飞](docs/ACTION-A-DOLL-HIT.md)。主控受到不同攻击时会失衡、击飞、翻滚并起身；短暂失控后按空格或 Shift 可以受身。保留既有存档格式。详见 [版本说明](docs/RELEASE-v1.2.0.md)。
 
