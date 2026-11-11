@@ -1,4 +1,6 @@
 import { clamp } from "../core.ts";
+import { skillFootOffset } from "../skill-body.ts";
+import type { SkillPose } from "../../action-skill/types";
 import {
   approach,
   balanceTarget,
@@ -27,6 +29,7 @@ export interface SupportState {
   surfaceId?: string | number;
 }
 export interface SupportInput {
+  skillPose?: SkillPose;
   x: number;
   y: number;
   clock: number;
@@ -91,6 +94,7 @@ export class SupportController {
   private stopAt = -999;
   private stopFeet: { x: number; y: number }[] = [];
   private balanceX = 0;
+  private skillFoot = { x: 0, y: 0 };
   reset() {
     this.contacts.forEach((c) =>
       Object.assign(c, contact(), { surfaceId: undefined }),
@@ -167,6 +171,16 @@ export class SupportController {
             ? startGait + (input.gait - startGait) * u
             : input.gait,
       });
+      if (
+        input.skillPose &&
+        previous.skillPose?.instance === input.skillPose.instance
+      )
+        sample.skillPose = {
+          ...input.skillPose,
+          age:
+            previous.skillPose.age +
+            (input.skillPose.age - previous.skillPose.age) * u,
+        };
       if (input.support && previous.support?.id === input.support.id)
         sample.support = {
           ...input.support,
@@ -275,7 +289,16 @@ export class SupportController {
         const rise = clamp((-(input.vy ?? 0) + 100) / 350);
         localX = sign * (8 + rise * 3);
         localY = -4 - rise * (i ? 3 : 8);
-        if (input.combatWeight > 0) {
+        if (rig.kind === "hero" && input.skillPose && !input.doll?.active) {
+          skillFootOffset(
+            input.skillPose,
+            i,
+            input.combatWeight,
+            this.skillFoot,
+          );
+          localX += this.skillFoot.x;
+          localY += this.skillFoot.y;
+        } else if (input.combatWeight > 0) {
           const tuck =
             Math.sin(clamp(input.combatAge / 0.38) * Math.PI) *
             input.combatWeight;

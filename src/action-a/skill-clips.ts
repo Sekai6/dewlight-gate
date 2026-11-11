@@ -46,6 +46,8 @@ export function skillClip(action: string, kind: string): Clip | undefined {
     add("foreBack", "rotation", [0, -0.8, -1.2, -0.7, -0.3, 0], t);
     add("head", "rotation", [0, 0.1, -0.12, -0.25, -0.1, 0], t);
     add("torso", "scaleX", [1, 0.95, 1.02, 1.08, 1.02, 1], t);
+    add("hip", "x", [0, -3, 1, 5, 2, 0], t);
+    add("torso", "y", [-9, -7, -10, -11, -9, -9], t);
   } else if (action === "skill-rise") {
     const t = [0, 0.09, 0.14, 0.23, 0.34, 0.5];
     add("hip", "y", [-30, -24, -29, -34, -32, -30], t);
@@ -55,6 +57,9 @@ export function skillClip(action: string, kind: string): Clip | undefined {
     add("foreBack", "rotation", [-0.3, -1, -1.5, -0.6, -0.3, 0], t);
     add("head", "rotation", [0, -0.15, 0.1, 0.2, 0.1, 0], t);
     add("torso", "scaleY", [1, 0.88, 1.04, 1.12, 1.04, 1], t);
+    add("hip", "x", [0, -2, 2, 3, 1, 0], t);
+    add("torso", "y", [-9, -6, -10, -12, -10, -9], t);
+    add("torso", "scaleX", [1, 1.08, 0.98, 0.94, 0.98, 1], t);
   } else if (action === "skill-bloom") {
     const t = [0, 0.08, 0.14, 0.22, 0.3, 0.38, 0.46, 0.57, 0.76];
     add("hip", "rotation", [0, -0.3, 0.25, -0.2, 0.3, -0.2, 0.25, 0.1, 0], t);
@@ -78,6 +83,9 @@ export function skillClip(action: string, kind: string): Clip | undefined {
       t,
     );
     add("torso", "scaleY", [1, 0.88, 1.06, 0.96, 1.06, 0.96, 1.06, 1.02, 1], t);
+    add("hip", "y", [-30, -26, -32, -29, -33, -29, -32, -31, -30], t);
+    add("hip", "x", [0, -2, 3, -2, 3, -2, 3, 1, 0], t);
+    add("torso", "scaleX", [1, 1.09, 0.96, 1.03, 0.96, 1.03, 0.96, 1, 1], t);
   } else {
     const warning = action.endsWith("-warn");
     const crystal = action.startsWith("crystal"),
@@ -147,6 +155,22 @@ export function skillClip(action: string, kind: string): Clip | undefined {
       warning
         ? [1, 0.98, garden ? 0.9 : 1.1, garden ? 0.9 : 1.1]
         : [1.08, 0.92, 1.03, 1],
+    );
+    add(
+      "head",
+      "rotation",
+      warning ? [0, 0.06, 0.12, 0.1] : [0.1, -0.12, 0.05, 0],
+    );
+    add("hip", "x", warning ? [0, -2, -4, -4] : [-4, 5, 2, 0]);
+    add(
+      "fore",
+      "rotation",
+      warning ? [0, 0.25, 0.65, 0.7] : [0.7, -0.3, 0.15, 0],
+    );
+    add(
+      "foreBack",
+      "rotation",
+      warning ? [0, -0.25, -0.6, -0.7] : [-0.7, 0.3, -0.15, 0],
     );
   }
   return {

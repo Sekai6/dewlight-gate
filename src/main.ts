@@ -249,7 +249,13 @@ function resume() {
 }
 function start(load: boolean) {
   save = load && stored ? structuredClone(stored) : fresh();
-  if (!load) save.difficulty = selectedDifficulty;
+  if (!load) {
+    const difficulty =
+      document.querySelector<HTMLSelectElement>("#difficulty")?.value;
+    if (difficulty === "normal" || difficulty === "challenge")
+      selectedDifficulty = difficulty;
+    save.difficulty = selectedDifficulty;
+  }
   mode = "play";
   scene.resetWorld();
   sound();
@@ -1227,7 +1233,7 @@ class Journey extends Phaser.Scene {
       this.attackInputAt = -999;
     }
     for (const event of skillStep.events) {
-      this.skillArt.event(event, this.x, this.y, now);
+      this.skillArt.event(event, this.x, this.y, now, this.facing);
       if (event.type === "prepare")
         sound(
           event.skill === "branch" ? 310 : event.skill === "rise" ? 420 : 610,

@@ -3,6 +3,7 @@ import { guardianAction } from "./action-a/drivers";
 import Phaser from "phaser";
 import type { DewGuardian } from "./boss";
 import { GUARDIAN } from "./boss";
+import { projectileAngle, warningProgress } from "./action-skill/presentation";
 
 export class GuardianArt {
   readonly actor: ActionActor;
@@ -93,6 +94,7 @@ export class GuardianArt {
     }
     for (const h of b.hazards) {
       const waiting = time < h.at;
+      const progress = warningProgress(time, b.phaseAt, h.at);
       const alpha = waiting
         ? 0.35 +
           0.35 *
@@ -104,17 +106,27 @@ export class GuardianArt {
           g.lineBetween(h.x, h.y, h.x + h.vx * 1.8, h.y + h.vy * 1.8);
           g.strokeCircle(h.x + h.vx * 0.25, h.y + h.vy * 0.25, h.radius);
         } else {
-          g.fillStyle(0xa9d8d1, 0.75);
+          const angle = projectileAngle(h.vx, h.vy);
+          const dx = Math.cos(angle),
+            dy = Math.sin(angle);
+          g.lineStyle(3, 0x85b8b6, 0.25);
+          g.lineBetween(h.x - dx * 38, h.y - dy * 38, h.x, h.y);
+          g.fillStyle(0xa9d8d1, 0.82);
           g.fillTriangle(
-            h.x - b.facing * 17,
-            h.y - 9,
-            h.x + b.facing * 19,
-            h.y,
-            h.x - b.facing * 17,
-            h.y + 9,
+            h.x - dx * 17 - dy * 9,
+            h.y - dy * 17 + dx * 9,
+            h.x + dx * 19,
+            h.y + dy * 19,
+            h.x - dx * 17 + dy * 9,
+            h.y - dy * 17 - dx * 9,
           );
           g.lineStyle(1.5, 0xffdb9e, 0.95);
-          g.lineBetween(h.x - b.facing * 10, h.y, h.x + b.facing * 19, h.y);
+          g.lineBetween(
+            h.x - dx * 10,
+            h.y - dy * 10,
+            h.x + dx * 19,
+            h.y + dy * 19,
+          );
         }
       } else {
         const height = h.kind === "radiance" ? 380 : 90;
@@ -124,6 +136,27 @@ export class GuardianArt {
         g.strokeRect(h.x - h.radius, h.y - height, h.radius * 2, height);
         g.strokeEllipse(h.x, h.y - 3, h.radius * 2, 13);
         if (waiting) {
+          g.lineStyle(3, 0xffe2ad, 0.8);
+          g.lineBetween(
+            h.x - h.radius,
+            h.y - 3,
+            h.x - h.radius + h.radius * 2 * progress,
+            h.y - 3,
+          );
+          if (h.kind === "garden") {
+            g.lineStyle(2, 0xb7d7a0, 0.7);
+            g.lineBetween(h.x, h.y - 5, h.x, h.y - 12 - progress * 20);
+            g.lineBetween(h.x, h.y - 12, h.x - 9, h.y - 20 - progress * 10);
+            g.lineBetween(h.x, h.y - 17, h.x + 9, h.y - 25 - progress * 10);
+          } else {
+            g.lineStyle(1, 0xffe7b4, 0.5 + progress * 0.3);
+            g.strokeEllipse(
+              h.x,
+              h.y - height + 22,
+              h.radius * 2 * (1 - progress * 0.65),
+              14,
+            );
+          }
           g.lineBetween(h.x - 9, h.y - 35, h.x, h.y - 20);
           g.lineBetween(h.x + 9, h.y - 35, h.x, h.y - 20);
         } else if (h.kind === "garden") {
@@ -137,6 +170,13 @@ export class GuardianArt {
               h.y,
             );
         } else {
+          g.fillStyle(0xffe3a0, 0.12);
+          g.fillRect(
+            h.x - h.radius * 0.7,
+            h.y - height,
+            h.radius * 1.4,
+            height,
+          );
           g.lineStyle(8, 0xffedbc, reduced ? 0.5 : 0.8);
           g.lineBetween(h.x, h.y - height, h.x, h.y);
         }
