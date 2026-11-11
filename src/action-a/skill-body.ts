@@ -1,4 +1,4 @@
-import type { SkillPose } from "../action-skill/types";
+import { SKILL_DURATION, type SkillPose } from "./actions.ts";
 
 export function skillFootOffset(
   pose: SkillPose | undefined,
@@ -8,7 +8,7 @@ export function skillFootOffset(
 ) {
   out.x = out.y = 0;
   if (!pose || airWeight <= 0) return out;
-  const duration = pose.id === "bloom" ? 0.76 : pose.id === "rise" ? 0.5 : 0.38;
+  const duration = SKILL_DURATION[pose.id];
   const progress = Math.max(0, Math.min(1, pose.age / duration));
   const envelope = Math.sin(progress * Math.PI) ** 2 * Math.min(1, airWeight);
   if (pose.id === "branch") {

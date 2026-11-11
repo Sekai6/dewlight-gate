@@ -1,3 +1,4 @@
+import { ATTACKS, REACTIONS, attackPhase } from "../actions.ts";
 import { clamp } from "../core.ts";
 export interface IntentTarget {
   id: string;
@@ -24,12 +25,6 @@ export interface IntentState {
   targetId: string | null;
 }
 export type IntentOutput = IntentState;
-const limits: Record<string, readonly number[]> = {
-  hero: [18, 6],
-  moss: [12, 5],
-  moth: [20, 8],
-  guardian: [10, 4],
-};
 export class IntentSelector {
   private selected: IntentTarget | undefined;
   private since = -999;
@@ -87,7 +82,8 @@ export class IntentController {
     this.stoppedAt = -999;
     this.lastMove = 0;
   }
-  update(input: IntentInput, kind: string) {
+  /** `limits` are the head and chest ranges in degrees. */
+  update(input: IntentInput, limits: readonly [number, number]) {
     if (this.clock === input.clock) return this.state;
     const dt = this.clock < 0 ? 0 : clamp(input.clock - this.clock, 0, 0.25);
     this.clock = input.clock;
@@ -109,16 +105,9 @@ export class IntentController {
     if (input.lockedDirection !== undefined)
       angle = input.lockedDirection === input.facing ? -0.04 : 0;
     const release =
-      ["slash", "rising-slash", "air-slash"].includes(input.action) &&
-      input.age >= 0.065 &&
-      input.age < 0.16;
-    if (
-      input.suppressed ||
-      release ||
-      ["hurt", "defeat", "bound"].includes(input.action)
-    )
-      angle = 0;
-    const [head, chest] = limits[kind] ?? limits.hero;
+      ATTACKS.has(input.action) && attackPhase(input.age) === "release";
+    if (input.suppressed || release || REACTIONS.has(input.action)) angle = 0;
+    const [head, chest] = limits;
     for (let remaining = dt; remaining > 1e-8;) {
       const h = Math.min(1 / 120, remaining);
       remaining -= h;

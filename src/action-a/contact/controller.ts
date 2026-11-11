@@ -1,5 +1,11 @@
-import { solveArm } from "../balance.ts";
 import { clamp } from "../core.ts";
+import {
+  limbError,
+  solveArm,
+  solveLimb,
+  type ArmSolution,
+  type LimbSolution,
+} from "../ik.ts";
 export interface ContactRequest {
   id: string;
   kind: "grip" | "foot" | "brace" | "inertia";
@@ -17,13 +23,8 @@ export interface ContactRequest {
   surfaceY?: number;
   left?: number;
   right?: number;
-  arm?: {
-    elbowX: number;
-    elbowY: number;
-    x: number;
-    y: number;
-    direction: number;
-  };
+  /** Solve as an arm with elbow-side memory held in this object. */
+  arm?: ArmSolution;
   ready?: boolean;
   freeX?: number;
   freeY?: number;
@@ -37,11 +38,7 @@ export interface ContactState {
   localY: number;
   surfaceId?: string | number;
 }
-export interface ContactResult {
-  jointX: number;
-  jointY: number;
-  x: number;
-  y: number;
+export interface ContactResult extends LimbSolution {
   error: number;
   state: ContactState;
 }
@@ -67,33 +64,6 @@ export class ContactController {
       }
   }
 
-  /** Resolve a conflicting set by stable priority. One request per limb wins. */
-  solveBatch(requests: readonly ContactRequest[], dt: number) {
-    const ordered = [...requests].sort(
-      (a, b) =>
-        CONTACT_PRIORITY[a.kind] - CONTACT_PRIORITY[b.kind] ||
-        a.id.localeCompare(b.id),
-    );
-    this.beginFrame();
-    const occupied = new Set<string>();
-    return ordered.map((request) => {
-      if (occupied.has(request.id)) {
-        const winner = this.slots.get(request.id)!;
-        return {
-          ...winner,
-          state: {
-            ...winner.state,
-            phase: "release" as const,
-            reason: "priority",
-            weight: 0,
-          },
-        };
-      }
-      const result = this.solve(request, dt);
-      if (request.valid) occupied.add(request.id);
-      return { ...result, state: { ...result.state } };
-    });
-  }
   private slots = new Map<string, ContactResult>();
   reset() {
     this.slots.clear();
@@ -170,50 +140,29 @@ export class ContactController {
         request.arm,
         !!request.ready,
       );
-      Object.assign(result, {
-        jointX: arm.elbowX,
-        jointY: arm.elbowY,
-        x: arm.x,
-        y: arm.y,
-        error: 0,
-      });
+      result.jointX = arm.jointX;
+      result.jointY = arm.jointY;
+      result.x = arm.x;
+      result.y = arm.y;
+      result.error = 0;
       return result;
     }
-    // Reuse the slot: no temporary knee/foot objects in the hot solver.
-    const dx = x - request.anchorX,
-      dy = y - request.anchorY;
-    const clampedDistance = clamp(
-      Math.hypot(dx, dy),
-      Math.abs(request.upper - request.lower) + 1e-5,
-      request.upper + request.lower - 1e-5,
+    solveLimb(
+      request.anchorX,
+      request.anchorY,
+      x,
+      y,
+      request.upper,
+      request.lower,
+      request.bend,
+      result,
     );
-    const angle = Math.atan2(dy, dx);
-    const offset = Math.acos(
-      clamp(
-        (request.upper * request.upper +
-          clampedDistance * clampedDistance -
-          request.lower * request.lower) /
-          (2 * request.upper * clampedDistance),
-        -1,
-        1,
-      ),
-    );
-    const jointAngle = angle + offset * request.bend;
-    result.jointX = request.anchorX + Math.cos(jointAngle) * request.upper;
-    result.jointY = request.anchorY + Math.sin(jointAngle) * request.upper;
-    result.x = request.anchorX + Math.cos(angle) * clampedDistance;
-    result.y = request.anchorY + Math.sin(angle) * clampedDistance;
-    result.error = Math.max(
-      Math.abs(
-        Math.hypot(
-          result.jointX - request.anchorX,
-          result.jointY - request.anchorY,
-        ) - request.upper,
-      ),
-      Math.abs(
-        Math.hypot(result.x - result.jointX, result.y - result.jointY) -
-          request.lower,
-      ),
+    result.error = limbError(
+      request.anchorX,
+      request.anchorY,
+      result,
+      request.upper,
+      request.lower,
     );
     return result;
   }

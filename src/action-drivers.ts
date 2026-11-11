@@ -1,9 +1,14 @@
-import { GUARDIAN } from "../boss";
-import type { HeroPose } from "../art";
-import type { Enemy } from "../creature";
-import type { DewGuardian } from "../boss";
-import type { ActorInput } from "./actor";
-import type { Action } from "./rigs";
+import { GUARDIAN } from "./boss";
+import type { HeroPose } from "./art";
+import type { Enemy } from "./creature";
+import type { DewGuardian } from "./boss";
+import type { ActorInput } from "./action-a/actor";
+import {
+  ATTACKS,
+  TIMING,
+  attackPhase,
+  type Action,
+} from "./action-a/actions.ts";
 
 export function heroAction(p: HeroPose, reduced = false): ActorInput {
   let action: Action = "idle",
@@ -14,26 +19,26 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     age = since(at);
   };
   if (p.dollPose?.active) choose("hurt", p.hurtAt);
-  else if (since(p.hurtAt) >= 0 && since(p.hurtAt) < 0.24)
+  else if (since(p.hurtAt) >= 0 && since(p.hurtAt) < TIMING.hurtHero)
     choose("hurt", p.hurtAt);
   else if (p.skillPose) {
     action = `skill-${p.skillPose.id}`;
     age = p.skillPose.age;
-  } else if (since(p.dashAt) >= 0 && since(p.dashAt) < 0.19)
+  } else if (since(p.dashAt) >= 0 && since(p.dashAt) < TIMING.dash)
     choose("dash", p.dashAt);
-  else if (since(p.attackAt) >= 0 && since(p.attackAt) < 0.38) {
+  else if (since(p.attackAt) >= 0 && since(p.attackAt) < TIMING.attack) {
     // attackStyle is stable for this attack; landing must not restart its clip.
     choose(p.attackStyle ? "rising-slash" : "slash", p.attackAt);
-  } else if (since(p.bindAt) >= 0 && since(p.bindAt) < 0.45)
+  } else if (since(p.bindAt) >= 0 && since(p.bindAt) < TIMING.bind)
     choose("bind", p.bindAt);
-  else if (!p.onGround && since(p.launchAt) < 0.16)
+  else if (!p.onGround && since(p.launchAt) < TIMING.launch)
     choose("launch", p.launchAt!);
   else if (!p.onGround)
     action = p.vy < -80 ? "rise" : p.vy > 80 ? "fall" : "apex";
-  else if (since(p.landAt) < 0.22 && Math.abs(p.vx) < 80)
+  else if (since(p.landAt) < TIMING.land && Math.abs(p.vx) < 80)
     choose("land", p.landAt!);
-  else if (since(p.turnAt) < 0.16) choose("turn", p.turnAt!);
-  else if (since(p.brakeAt) < 0.18) choose("brake", p.brakeAt!);
+  else if (since(p.turnAt) < TIMING.turn) choose("turn", p.turnAt!);
+  else if (since(p.brakeAt) < TIMING.brake) choose("brake", p.brakeAt!);
   else if (Math.abs(p.vx) > 5) action = Math.abs(p.vx) > 180 ? "run" : "walk";
   return {
     skillPose: p.skillPose,
@@ -45,7 +50,7 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     y: p.y,
     instance: p.skillPose
       ? `skill:${p.skillPose.instance}`
-      : ["slash", "rising-slash", "air-slash"].includes(action)
+      : ATTACKS.has(action)
         ? `attack:${p.attackAt}`
         : undefined,
     support: p.support,
@@ -60,22 +65,21 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     reduced,
     moving: p.onGround && Math.abs(p.vx) > 5,
     hitDirection: p.hitDirection,
-    combatPhase:
-      age < 0.065 ? "anticipation" : age < 0.16 ? "release" : "recovery",
+    combatPhase: attackPhase(age),
   };
 }
 export function creatureAction(
   e: Enemy,
   clock: number,
   reduced = false,
-  target?: import("./intent/controller").IntentTarget,
+  target?: import("./action-a/intent/controller").IntentTarget,
 ): ActorInput {
   const action: Action =
     e.hp <= 0
       ? "defeat"
       : e.bound > clock
         ? "bound"
-        : clock - e.hurtAt < 0.2
+        : clock - e.hurtAt < TIMING.hurt
           ? "hurt"
           : e.phase === "patrol"
             ? "walk"
@@ -112,7 +116,7 @@ export function guardianAction(
   clock: number,
   reduced = false,
   visible = true,
-  target?: import("./intent/controller").IntentTarget,
+  target?: import("./action-a/intent/controller").IntentTarget,
 ): ActorInput {
   const map: Record<string, Action> = {
     sleep: "idle",

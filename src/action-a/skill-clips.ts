@@ -1,10 +1,11 @@
 import type { Clip, Track } from "./core";
+import { SKILL_DURATION } from "./actions.ts";
 /** Authored force chains. Weapon targets are separately constrained by CONTACT. */
 export function skillClip(action: string, kind: string): Clip | undefined {
   const durations: Record<string, number> = {
-    "skill-branch": 0.38,
-    "skill-rise": 0.5,
-    "skill-bloom": 0.76,
+    "skill-branch": SKILL_DURATION.branch,
+    "skill-rise": SKILL_DURATION.rise,
+    "skill-bloom": SKILL_DURATION.bloom,
     "crystal-warn": 1,
     crystal: 2.2,
     "garden-warn": 1.1,

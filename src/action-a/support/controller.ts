@@ -1,6 +1,12 @@
 import { clamp } from "../core.ts";
 import { skillFootOffset } from "../skill-body.ts";
-import type { SkillPose } from "../../action-skill/types";
+import {
+  GAIT_FROZEN,
+  STEP_BLOCKED,
+  TIMING,
+  UNPLANTED,
+  type SkillPose,
+} from "../actions.ts";
 import {
   approach,
   balanceTarget,
@@ -58,7 +64,8 @@ export interface SupportOutput {
   events: { x: number; y: number; time: number; kind: "step" }[];
 }
 export interface SupportRig {
-  kind: string;
+  flying: boolean;
+  armed: boolean;
   support: SupportProfile;
   stride: number;
   stance: number;
@@ -165,9 +172,7 @@ export class SupportController {
         vx: previous.vx + (input.vx - previous.vx) * u,
         feet: this.sampleFeet,
         gait:
-          input.grounded &&
-          previous.grounded &&
-          !["dash", "skill-branch", "hurt", "defeat"].includes(input.action)
+          input.grounded && previous.grounded && !GAIT_FROZEN.has(input.action)
             ? startGait + (input.gait - startGait) * u
             : input.gait,
       });
@@ -238,14 +243,12 @@ export class SupportController {
       rig.support.enabled &&
       input.grounded &&
       Math.abs(input.vx) > 5 &&
-      !["dash", "skill-branch", "hurt", "defeat", "bound"].includes(
-        input.action,
-      );
+      !STEP_BLOCKED.has(input.action);
     const planted =
       !input.doll?.active &&
       input.grounded &&
-      !["dash", "skill-branch", "defeat"].includes(input.action) &&
-      rig.kind !== "moth" &&
+      !UNPLANTED.has(input.action) &&
+      !rig.flying &&
       input.enabled;
     const dt = previous ? Math.max(0, input.clock - previous.clock) : 0;
     const span = (rig.stride * rig.stance) / 2;
@@ -284,12 +287,11 @@ export class SupportController {
             rig.support.lift *
             clamp(Math.abs(input.vx) / 220, 0.5, 1);
         }
-      } else if (!input.grounded || rig.kind === "moth") {
-        localX = (input.vy ?? 0) < 0 ? sign * 10 : sign * 8;
+      } else if (!input.grounded || rig.flying) {
         const rise = clamp((-(input.vy ?? 0) + 100) / 350);
         localX = sign * (8 + rise * 3);
         localY = -4 - rise * (i ? 3 : 8);
-        if (rig.kind === "hero" && input.skillPose && !input.doll?.active) {
+        if (rig.armed && input.skillPose && !input.doll?.active) {
           skillFootOffset(
             input.skillPose,
             i,
@@ -300,7 +302,7 @@ export class SupportController {
           localY += this.skillFoot.y;
         } else if (input.combatWeight > 0) {
           const tuck =
-            Math.sin(clamp(input.combatAge / 0.38) * Math.PI) *
+            Math.sin(clamp(input.combatAge / TIMING.attack) * Math.PI) *
             input.combatWeight;
           localX += (i ? -9 : 6) * tuck;
           localY -= (i ? 4 : 9) * tuck;

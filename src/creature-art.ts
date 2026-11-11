@@ -1,5 +1,5 @@
 import { ActionActor } from "./action-a/actor";
-import { creatureAction } from "./action-a/drivers";
+import { creatureAction } from "./action-drivers";
 import Phaser from "phaser";
 import { enemySpawns } from "./level";
 import type { Enemy } from "./creature";

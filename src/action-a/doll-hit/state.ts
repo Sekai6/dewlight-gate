@@ -19,6 +19,13 @@ export const HIT_PROFILES: Record<HitKind, DollHitProfile> = {
   charge: { horizontal: 620, upward: 400, lock: 0.3, bounces: 2, spin: 13 },
   wave: { horizontal: 280, upward: 590, lock: 0.3, bounces: 2, spin: 11 },
 };
+/** Seconds spent in each get-up phase. */
+export const DOLL_TIMING = {
+  roll: 0.2,
+  rollGround: 0.06,
+  rise: 0.24,
+  recover: 0.12,
+} as const;
 export type DollPhase =
   "idle" | "impact" | "air" | "bounce" | "roll" | "rise" | "recover";
 export interface DollHitState {
@@ -112,13 +119,14 @@ export class DollHitController {
       if (s.phase === "bounce" && s.phaseAge >= 0.06) this.phase("air");
       if (
         s.phase === "roll" &&
-        s.phaseAge >= (s.kind === "ground" ? 0.06 : 0.2)
+        s.phaseAge >=
+          (s.kind === "ground" ? DOLL_TIMING.rollGround : DOLL_TIMING.roll)
       ) {
         this.recoveryAngle = s.angle;
         this.phase("rise");
       }
       if (s.phase === "recover" || s.phase === "rise") {
-        const duration = s.phase === "recover" ? 0.12 : 0.24;
+        const duration = DOLL_TIMING[s.phase];
         const u = Math.min(1, s.phaseAge / duration);
         const target =
           Math.round(this.recoveryAngle / (Math.PI * 2)) * Math.PI * 2;

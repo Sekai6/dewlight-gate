@@ -1,6 +1,7 @@
 import { approach } from "../balance.ts";
 import { clamp } from "../core.ts";
-import type { DollHitState } from "../doll-hit/state.ts";
+import { RECOVERY_CANCEL } from "../actions.ts";
+import { DOLL_TIMING, type DollHitState } from "../doll-hit/state.ts";
 import type { SupportSurface } from "../support/controller.ts";
 
 export type RecoveryPath = "none" | "air" | "slide" | "brace" | "stand";
@@ -14,6 +15,8 @@ export interface RecoveryInput {
   doll?: Readonly<DollHitState>;
   support?: SupportSurface;
   shoulder?: { x: number; y: number };
+  /** How far the bracing hand can be from the shoulder. */
+  reach: number;
 }
 export interface RecoveryState {
   instance: string;
@@ -30,6 +33,8 @@ export interface RecoveryOutput {
   crouch: number;
   tuck: number;
 }
+/** Seconds the crouch lingers after the ragdoll releases. */
+const FADE = 0.12;
 /** A visual observer of DOLL-HIT. It cannot extend control lock or change physics. */
 export class RecoveryController {
   readonly state: RecoveryState = {
@@ -101,41 +106,21 @@ export class RecoveryController {
     this.wasDoll = !!d?.active;
     const recovering =
       !!d?.active && ["roll", "rise", "recover"].includes(d.phase);
-    const fade = !d?.active && input.clock - s.releaseAt < 0.12;
+    const fade = !d?.active && input.clock - s.releaseAt < FADE;
     s.active = recovering || fade;
-    if (
-      fade &&
-      [
-        "slash",
-        "rising-slash",
-        "air-slash",
-        "dash",
-        "bind",
-        "launch",
-        "hurt",
-      ].includes(input.action)
-    )
-      s.active = false;
+    if (fade && RECOVERY_CANCEL.has(input.action)) s.active = false;
+    const phase = recovering
+      ? DOLL_TIMING[d!.phase as "roll" | "rise" | "recover"]
+      : FADE;
     s.remaining = fade
-      ? Math.max(0, 0.12 - (input.clock - s.releaseAt))
+      ? Math.max(0, FADE - (input.clock - s.releaseAt))
       : recovering
-        ? Math.max(
-            0,
-            (d!.phase === "recover" ? 0.12 : d!.phase === "rise" ? 0.24 : 0.2) -
-              d!.phaseAge,
-          )
+        ? Math.max(0, phase - d!.phaseAge)
         : 0;
     s.progress = fade
-      ? clamp(1 - s.remaining / 0.12)
+      ? clamp(1 - s.remaining / FADE)
       : recovering
-        ? clamp(
-            d!.phaseAge /
-              (d!.phase === "recover"
-                ? 0.12
-                : d!.phase === "rise"
-                  ? 0.24
-                  : 0.2),
-          )
+        ? clamp(d!.phaseAge / phase)
         : 0;
     s.weight = s.active
       ? fade
@@ -174,7 +159,7 @@ export class RecoveryController {
       if (
         x >= surface.left + 2 &&
         x <= surface.right - 2 &&
-        Math.hypot(x - shoulder.x, y - shoulder.y) <= 23.5
+        Math.hypot(x - shoulder.x, y - shoulder.y) <= input.reach
       ) {
         s.path = "brace";
         Object.assign(this.output.hand, { x, y, weight: s.weight });

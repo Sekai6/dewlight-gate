@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { ActionActor } from "../action-a/actor";
-import { guardianAction } from "../action-a/drivers";
+import { guardianAction } from "../action-drivers";
 import { GuardianArt } from "../boss-art";
 import { createGuardian, stepGuardian } from "../boss";
 import { SkillRuntime } from "./runtime";

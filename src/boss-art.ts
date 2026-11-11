@@ -1,5 +1,5 @@
 import { ActionActor } from "./action-a/actor";
-import { guardianAction } from "./action-a/drivers";
+import { guardianAction } from "./action-drivers";
 import Phaser from "phaser";
 import type { DewGuardian } from "./boss";
 import { GUARDIAN } from "./boss";

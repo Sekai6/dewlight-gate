@@ -246,41 +246,6 @@ export function worldPose(
   }
   return output;
 }
-/** Two segment IK; clamps unreachable targets, with a stable bend direction. */
-export function solveIK(
-  x: number,
-  y: number,
-  tx: number,
-  ty: number,
-  upper: number,
-  lower: number,
-  bend = 1,
-) {
-  const dx = tx - x,
-    dy = ty - y;
-  const distance = clamp(
-    Math.hypot(dx, dy),
-    Math.abs(upper - lower) + 1e-5,
-    upper + lower - 1e-5,
-  );
-  const angle = Math.atan2(dy, dx);
-  const offset = Math.acos(
-    clamp(
-      (upper * upper + distance * distance - lower * lower) /
-        (2 * upper * distance),
-      -1,
-      1,
-    ),
-  );
-  const a = angle + offset * bend;
-  return {
-    knee: { x: x + Math.cos(a) * upper, y: y + Math.sin(a) * upper },
-    foot: {
-      x: x + Math.cos(angle) * distance,
-      y: y + Math.sin(angle) * distance,
-    },
-  };
-}
 /** Analytic critically damped spring, stable under varying render frame rates. */
 export class FollowSpring {
   value = 0;
