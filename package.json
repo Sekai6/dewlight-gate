@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc && npm run build --workspaces --if-present && vite build",
+    "build": "tsc && npm run build -w packages/action-a && npm run build -w packages/action-skill && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --conditions=source --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "playwright test",

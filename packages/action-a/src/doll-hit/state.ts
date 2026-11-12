@@ -107,6 +107,8 @@ export class DollHitController<Kind extends string = string> {
   }
   start(hit: HitContext<Kind>, stay = false): boolean {
     if (this.state.active || this.state.instance === hit.instance) return false;
+    if (!this.profiles[hit.kind])
+      throw new RangeError(`no hit profile named "${hit.kind}"`);
     const direction = Math.sign(hit.direction) || 1;
     Object.assign(this.state, fresh(), {
       active: true,
