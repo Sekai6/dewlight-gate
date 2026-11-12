@@ -3,7 +3,7 @@ import { createActor } from "./content/actors.ts";
 import { creatureAction } from "./action-drivers";
 import Phaser from "phaser";
 import { enemySpawns } from "./level";
-import type { Enemy } from "./creature";
+import { creatureTuning, type Enemy } from "./creature";
 
 export class CreatureDirector {
   readonly actors: ActionActor[] = [];
@@ -78,7 +78,7 @@ export class CreatureDirector {
       g.fillStyle(0x0d2932, e.type ? 0.12 : 0.25);
       g.fillEllipse(e.x, e.floor + 2, e.type ? 34 : 58, e.type ? 5 : 8);
       if (e.phase === "windup" && !bound) {
-        const p = 1 - e.warn / (e.type ? 0.85 : 0.7),
+        const p = 1 - e.warn / creatureTuning(e).windup,
           dir = e.attackDir;
         g.fillStyle(0xf4b780, 0.06 + p * 0.09);
         g.fillTriangle(
@@ -101,6 +101,20 @@ export class CreatureDirector {
         g.strokePath();
         g.fillStyle(0xffe2aa);
         g.fillTriangle(e.x, e.y - 74, e.x - 4, e.y - 66, e.x + 4, e.y - 66);
+      }
+      if (e.phase === "alert" && !bound) {
+        // It has noticed you: a quick mark above the head.
+        const p = Math.min(1, (time - e.phaseAt) / creatureTuning(e).alert);
+        g.fillStyle(0xfff1c4, 0.9 * (1 - p * 0.4));
+        g.fillTriangle(
+          e.x - 3,
+          e.y - 82 - p * 4,
+          e.x + 3,
+          e.y - 82 - p * 4,
+          e.x,
+          e.y - 68 - p * 4,
+        );
+        g.fillCircle(e.x, e.y - 62 - p * 4, 2);
       }
       if (e.phase === "strike" && !bound) {
         g.lineStyle(2, 0xf7d5a0, 0.6);

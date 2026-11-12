@@ -2,6 +2,7 @@ import type { Bone, Clip, Track } from "@dewlight/action-a";
 import type { RigDefinition } from "@dewlight/action-a";
 import { skillClip } from "./skill-clips.ts";
 import { SWORD_ATTACKS } from "./skills.ts";
+import { CREATURES } from "./creatures.ts";
 import { ATTACKS, LOOPING, TIMING, type Action } from "./actions.ts";
 export type ActorKind = "hero" | "moss" | "moth" | "guardian";
 /** Rig data; the behaviour hooks are attached in actors.ts. */
@@ -341,11 +342,18 @@ export function getClip(rig: Rig, action: string): Clip {
   }
   const hero = rig.kind === "hero",
     boss = rig.kind === "guardian";
+  const creature =
+    rig.kind === "moss" || rig.kind === "moth"
+      ? CREATURES[rig.kind]
+      : undefined;
   const durations: Partial<Record<string, number>> = {
     slash: TIMING.attack,
     "rising-slash": TIMING.attack,
     "air-slash": TIMING.attack,
     finisher: SWORD_ATTACKS.slash3.duration,
+    alert: creature?.alert ?? 0.35,
+    hop: creature?.hop?.time ?? 0.42,
+    pass: creature?.pass?.time ?? 0.9,
     dash: TIMING.dash,
     bind: TIMING.bind,
     hurt: hero ? TIMING.hurtHero : TIMING.hurt,
@@ -389,7 +397,24 @@ export function getClip(rig: Rig, action: string): Clip {
   };
   const add = (bone: string, channel: Track["channel"], values: number[]) =>
     clip.tracks.push(track(bone, channel, d, values));
-  if (action === "finisher") {
+  const hipRest = rig.bones[1].rest.y!;
+  if (action === "alert") {
+    // Notices something: straightens up and cranes toward it.
+    add("torso", "rotation", [0, -0.16, -0.1]);
+    add("head", "rotation", [0, -0.24, -0.08]);
+    add("hip", "y", [hipRest, hipRest - 4, hipRest - 1]);
+  } else if (action === "hop") {
+    // Springs backward: crouch, arms thrown wide, tuck, land.
+    add("torso", "rotation", [0.22, -0.3, -0.16, 0.1]);
+    add("hip", "y", [hipRest + 4, hipRest - 3, hipRest - 2, hipRest + 3]);
+    add("arm", "rotation", [0, -0.9, -0.6, 0]);
+    add("armBack", "rotation", [0, 0.9, 0.6, 0]);
+    add("head", "rotation", [0, 0.16, 0.1, 0]);
+  } else if (action === "pass") {
+    // Leans into a fast flight over the player.
+    add("torso", "rotation", [0, 0.36, 0.36, 0]);
+    add("head", "rotation", [0, -0.2, -0.2, 0]);
+  } else if (action === "finisher") {
     // Overhead chop: both arms rise as the body arches back, then everything
     // comes down into a deep forward crouch and settles.
     const slash3 = SWORD_ATTACKS.slash3;

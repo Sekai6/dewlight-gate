@@ -41,8 +41,10 @@ import { HIT_PROFILES, type Hit as HitContext } from "./content/hits.ts";
 import { drawMonument } from "./entities";
 import { CreatureDirector } from "./creature-art";
 import {
+  coordinateCreatures,
   hurtCreature,
   liftCreature,
+  type PlayerView,
   stepCreature,
   type Enemy,
 } from "./creature";
@@ -731,6 +733,7 @@ class Journey extends Phaser.Scene {
   onGround = false;
   groundIndex = -1;
   enemies: Enemy[] = [];
+  private enemyView: PlayerView = { x: 0, y: 0 };
   beads: { x: number; y: number; id: string }[] = [];
   totalBeads = 0;
   saveClock = 0;
@@ -1683,15 +1686,29 @@ class Journey extends Phaser.Scene {
     if (this.onGround && !dash)
       this.stride +=
         Math.abs(this.x - previousX) / (Math.abs(this.vx) > 180 ? 78 : 58);
+    // What the creatures can read of the player this step.
+    const swing = this.skills.active;
+    const view = this.enemyView;
+    view.x = this.x;
+    view.y = this.y;
+    view.hp = this.hp;
+    view.attacking = !!swing && swing.phase !== "recovery";
+    view.casting =
+      swing && swing.phase === "anticipation" && isSkill(swing.skill)
+        ? swing.id
+        : undefined;
+    coordinateCreatures(this.enemies, now, view);
     this.enemies.forEach((e) => {
       if (Math.abs(e.x - this.x) > 1300) {
-        e.phase = "patrol";
+        // Out of the fight: forget it and head home.
+        if (e.phase !== "patrol") e.phase = "return";
         e.warn = 0;
+        e.token = e.go = undefined;
         e.cool = Math.max(e.cool, now + 0.3);
         return;
       }
       const before = e.phase;
-      if (stepCreature(e, now, dt, this))
+      if (stepCreature(e, now, dt, view))
         this.damage(false, this.x - e.x, {
           kind: e.type ? "flying" : "ground",
           sourceX: e.x,

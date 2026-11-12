@@ -112,6 +112,7 @@ test("normal and challenge telegraphs lock positions, preserve a safe floor lane
       b.phase = "stalk";
       b.until = 1;
       b.attacks = index;
+      b.plan = index === 2 ? "crystal" : index === 3 ? "garden" : "radiance";
       if (index === 4) {
         b.hp /= 2;
         b.attacks = 3;

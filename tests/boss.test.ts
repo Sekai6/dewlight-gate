@@ -32,6 +32,7 @@ test("ordinary hits work, openings reward damage, and roots can be jumped or int
   assert.equal(b.hp, GUARDIAN.hp - 3);
   b.phase = "stalk";
   b.attacks = 1;
+  b.plan = "slam";
   b.until = 3;
   stepGuardian(b, 3, 1 / 120, { x: 2600, y: 1100 });
   assert.equal(b.phase, "slam-warn");
