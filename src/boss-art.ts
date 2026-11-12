@@ -198,7 +198,7 @@ export class GuardianArt {
         dead
           ? "露冠守卫 · 已苏醒"
           : active
-            ? `露冠守卫 · ${b.difficulty === "challenge" ? "挑战" : "普通"} · ${b.hp}/${b.maxHp}\n${warning ? "→ 冲锋将至 · 跳起或 Shift 穿过" : b.phase === "slam-warn" ? "↑ 根浪将至 · 空格跳过，K 可打断" : b.phase === "crystal-warn" ? "◇ 折冠散晶 · 穿过晶刃间隙" : b.phase === "garden-warn" ? "♧ 根庭绽刺 · 离开藤芽标记" : b.phase === "radiance-warn" ? "↓ 露冠辉落 · 离开竖直光柱" : b.phase === "recover" ? "✧ 疲惫破绽 · J 双倍伤害" : b.phase === "bound" ? "✧ 藤蔓破绽 · J 双倍伤害" : "Q / R / F 剑舞 · K 打断 · T 重试"}`
+            ? `露冠守卫 · ${b.difficulty === "challenge" ? "挑战" : "普通"} · ${b.hp}/${b.maxHp}\n${warning ? "→ 冲锋将至 · 跳起或 Shift 穿过" : b.phase === "slam-warn" ? "↑ 根浪将至 · 空格跳过，右键可打断" : b.phase === "crystal-warn" ? "◇ 折冠散晶 · 穿过晶刃间隙" : b.phase === "garden-warn" ? "♧ 根庭绽刺 · 离开藤芽标记" : b.phase === "radiance-warn" ? "↓ 露冠辉落 · 离开竖直光柱" : b.phase === "recover" ? "✧ 疲惫破绽 · 左键双倍伤害" : b.phase === "bound" ? "✧ 藤蔓破绽 · 左键双倍伤害" : "Q / E / R 剑舞 · 右键打断 · T 重试"}`
             : "沉睡的露冠守卫",
       );
     if (active) {

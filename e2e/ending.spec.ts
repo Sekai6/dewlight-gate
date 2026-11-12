@@ -36,7 +36,7 @@ test("结尾统计、继续漫步、确认取消与重开", async ({ page }) => 
     s.vy = 0;
   });
   await page.waitForTimeout(100);
-  await page.keyboard.press("e", { delay: 80 });
+  await page.keyboard.press("f", { delay: 80 });
   const before = await page.evaluate(() => {
     const s = (window as any).dewlight.scene.getScene("journey");
     return {
