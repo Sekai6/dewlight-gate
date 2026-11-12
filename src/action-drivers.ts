@@ -2,13 +2,8 @@ import { GUARDIAN } from "./boss";
 import type { HeroPose } from "./art";
 import type { Enemy } from "./creature";
 import type { DewGuardian } from "./boss";
-import type { ActorInput } from "./action-a/actor";
-import {
-  ATTACKS,
-  TIMING,
-  attackPhase,
-  type Action,
-} from "./action-a/actions.ts";
+import type { ActorInput } from "@dewlight/action-a";
+import { ATTACKS, TIMING, type Action } from "./content/actions.ts";
 
 export function heroAction(p: HeroPose, reduced = false): ActorInput {
   let action: Action = "idle",
@@ -46,7 +41,7 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     x: p.x,
     doll: p.dollPose ?? undefined,
     dollFloor: p.dollFloor,
-    attackSegment: p.attackStyle ? 2 : 1,
+
     y: p.y,
     instance: p.skillPose
       ? `skill:${p.skillPose.instance}`
@@ -63,16 +58,15 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     vy: p.vy,
     grounded: p.onGround,
     reduced,
-    moving: p.onGround && Math.abs(p.vx) > 5,
+
     hitDirection: p.hitDirection,
-    combatPhase: attackPhase(age),
   };
 }
 export function creatureAction(
   e: Enemy,
   clock: number,
   reduced = false,
-  target?: import("./action-a/intent/controller").IntentTarget,
+  target?: import("@dewlight/action-a").IntentTarget,
 ): ActorInput {
   const corpse = e.hp <= 0 ? e.corpse : undefined;
   if (corpse && !reduced)
@@ -138,7 +132,7 @@ export function guardianAction(
   clock: number,
   reduced = false,
   visible = true,
-  target?: import("./action-a/intent/controller").IntentTarget,
+  target?: import("@dewlight/action-a").IntentTarget,
 ): ActorInput {
   const map: Record<string, Action> = {
     sleep: "idle",

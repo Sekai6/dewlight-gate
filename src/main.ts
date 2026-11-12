@@ -1,12 +1,15 @@
-import { SkillRuntime } from "./action-skill/runtime";
-import { skillContains } from "./action-skill/query";
-import { SKILLS, SKILL_IDS } from "./action-skill/config";
-import type { SkillHit, SkillId, Difficulty } from "./action-skill/types";
-import { SkillArt } from "./action-skill/art";
+import { SkillRuntime } from "@dewlight/action-skill";
+import { skillContains } from "@dewlight/action-skill";
 import {
-  IntentSelector,
-  type IntentTarget,
-} from "./action-a/intent/controller";
+  SKILLS,
+  SKILL_IDS,
+  skillBlockText,
+  type SkillId,
+} from "./content/skills.ts";
+import type { SkillHit } from "@dewlight/action-skill";
+import type { Difficulty } from "./boss";
+import { SkillArt } from "./skill-art";
+import { IntentSelector, type IntentTarget } from "@dewlight/action-a";
 import Phaser from "phaser";
 import "./style.css";
 import { WebGPUCompositor } from "./webgpu";
@@ -28,7 +31,8 @@ import {
   GUARDIAN,
 } from "./boss";
 import { Effects } from "./effects";
-import { DollHitController, type HitContext } from "./action-a/doll-hit/state";
+import { DollHitController } from "@dewlight/action-a";
+import { HIT_PROFILES, type Hit as HitContext } from "./content/hits.ts";
 import { drawMonument } from "./entities";
 import { CreatureDirector } from "./creature-art";
 import {
@@ -311,7 +315,10 @@ function render() {
   const skillbar = scene?.started
     ? `<aside class="skillbar" aria-label="剑舞技能">${SKILL_IDS.map((id) => {
         const d = SKILLS[id],
-          reason = scene.skills.reason(id, scene.skillInput());
+          reason = skillBlockText(
+            scene.skills.reason(id, scene.skillInput()),
+            scene.skills.cooldowns[id],
+          );
         return `<div class="skill-slot ${reason ? "unavailable" : "ready"}" data-skill="${id}"><kbd>${d.key}</kbd><strong>${d.name}</strong><small>${d.cost} 光 · ${reason || "就绪"}</small><i style="--cool:${(100 * scene.skills.cooldowns[id]) / d.cooldown}%"></i></div>`;
       }).join("")}</aside>`
     : "";
@@ -471,7 +478,7 @@ window.addEventListener("beforeunload", () => {
 });
 
 class Journey extends Phaser.Scene {
-  readonly skills = new SkillRuntime();
+  readonly skills = new SkillRuntime(SKILLS);
   skillArt!: SkillArt;
   skillSpentAt = -999;
   training = true;
@@ -502,10 +509,10 @@ class Journey extends Phaser.Scene {
     toast("露冠守卫已苏醒 · 三种剑舞也照亮了庭院。去唤醒晨露碑吧。");
     persist();
   }
-  resolveSkillHit(hit: SkillHit) {
+  resolveSkillHit(hit: SkillHit<SkillId>) {
     const now = this.clock;
     const inRange = (x: number, y: number, boss = false) =>
-      skillContains(hit, this, { id: "query", x, y, boss });
+      skillContains(hit, this, { id: "query", x, y, padding: boss ? 25 : 0 });
     const b = this.guardian;
     if (
       inRange(b.x, b.y, true) &&
@@ -627,7 +634,7 @@ class Journey extends Phaser.Scene {
   landingSpeed = 0;
   hurtAt = -999;
   hitDirection = 0;
-  readonly doll = new DollHitController();
+  readonly doll = new DollHitController(HIT_PROFILES);
   private hitSerial = 0;
   get dollPose() {
     return this.doll.state.active ? this.doll.state : null;
@@ -1219,7 +1226,7 @@ class Journey extends Phaser.Scene {
       ) {
         if (!this.skills.request(id, this.skillInput()))
           toast(
-            `${SKILLS[id].name} · ${this.skills.reason(id, this.skillInput())}`,
+            `${SKILLS[id].name} · ${skillBlockText(this.skills.reason(id, this.skillInput()), this.skills.cooldowns[id])}`,
           );
       }
     }

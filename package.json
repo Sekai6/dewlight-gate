@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc && vite build",
+    "build": "tsc && npm run build -w packages/action-a && npm run build -w packages/action-skill && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test": "node --conditions=source --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "format:check": "prettier --check src e2e tests playwright.config.ts"
+    "format:check": "prettier --check src packages e2e tests playwright.config.ts"
   },
   "dependencies": {
+    "@dewlight/action-a": "*",
+    "@dewlight/action-skill": "*",
     "phaser": "^3.90.0"
   },
   "devDependencies": {
@@ -20,5 +22,8 @@
     "prettier": "^3.9.10",
     "typescript": "~5.9.3",
     "vite": "^7.3.1"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

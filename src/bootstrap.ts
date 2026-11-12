@@ -3,12 +3,12 @@ if (
   import.meta.env.DEV &&
   new URLSearchParams(location.search).has("action-skill")
 ) {
-  void import("./action-skill/preview");
+  void import("./preview-action-skill");
 } else if (
   import.meta.env.DEV &&
   new URLSearchParams(location.search).has("action-a")
 ) {
-  void import("./action-a/preview");
+  void import("./preview-action-a");
 } else {
   void import("./main");
 }

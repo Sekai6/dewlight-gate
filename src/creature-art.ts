@@ -1,4 +1,5 @@
-import { ActionActor } from "./action-a/actor";
+import type { PhaserActor as ActionActor } from "@dewlight/action-a/phaser";
+import { createActor } from "./content/actors.ts";
 import { creatureAction } from "./action-drivers";
 import Phaser from "phaser";
 import { enemySpawns } from "./level";
@@ -9,7 +10,7 @@ export class CreatureDirector {
   private ink: Phaser.GameObjects.Graphics;
   constructor(private scene: Phaser.Scene) {
     enemySpawns.forEach((e) => {
-      const a = new ActionActor(scene, e.type ? "moth" : "moss", 4);
+      const a = createActor(scene, e.type ? "moth" : "moss", 4);
       a.setVisible(false);
       this.actors.push(a);
     });
@@ -44,7 +45,7 @@ export class CreatureDirector {
         hurt = time - e.hurtAt < 0.2;
       let actor = this.actors[index];
       if (!actor)
-        actor = this.actors[index] = new ActionActor(
+        actor = this.actors[index] = createActor(
           this.scene,
           e.type ? "moth" : "moss",
           4,

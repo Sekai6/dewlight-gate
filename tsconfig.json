@@ -5,10 +5,21 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "lib": ["ES2022", "DOM"],
-    "types": ["@webgpu/types"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "@webgpu/types"
+    ],
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "customConditions": [
+      "source"
+    ]
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "packages/*/src"
+  ]
 }
