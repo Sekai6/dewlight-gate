@@ -58,8 +58,8 @@ test("first guardian has a safe opening, freezes in menus, can be defeated and s
       s.facing = dx > 0 ? 1 : -1;
       if ((b.phase === "warn" || b.phase === "slam-warn") && s.onGround)
         s.keys.SPACE._justDown = true;
-      if (n % 48 === 0) s.keys.J._justDown = true;
-      if (n % 200 === 0) s.keys.K._justDown = true;
+      if (n % 48 === 0) s.keys.ATTACK._justDown = true;
+      if (n % 200 === 0) s.keys.BIND._justDown = true;
       s.clock += 1 / 120;
       s.step(1 / 120);
     }
@@ -74,7 +74,7 @@ test("first guardian has a safe opening, freezes in menus, can be defeated and s
     s.y = 1100;
     s.vx = 0;
     s.vy = 0;
-    s.keys.E._justDown = true;
+    s.keys.F._justDown = true;
     s.clock += 1 / 120;
     s.step(1 / 120);
   });
@@ -97,7 +97,7 @@ test("first guardian has a safe opening, freezes in menus, can be defeated and s
     s.x = 3580;
     s.y = 1100;
     s.vx = 0;
-    s.keys.E._justDown = true;
+    s.keys.F._justDown = true;
     s.clock += 1 / 120;
     s.step(1 / 120);
   });
@@ -106,7 +106,7 @@ test("first guardian has a safe opening, freezes in menus, can be defeated and s
       () => (window as any).dewlight.scene.getScene("journey").x,
     ),
   ).toBeGreaterThan(12000);
-  await page.keyboard.press("e");
+  await page.keyboard.press("f");
   expect(
     await page.evaluate(
       () => (window as any).dewlight.scene.getScene("journey").x,

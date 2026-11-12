@@ -286,7 +286,7 @@ function trialCard() {
     rooms.length - 1,
     Math.floor((scene?.x ?? 0) / ROOM_WIDTH),
   );
-  return `<section class="trial-card"><div><small>可选 · 风之邀约</small><strong>${rooms[room].name}</strong></div><p>${save.trials.includes(`rise-${room}`) ? "✧" : "◇"} 借上升风登高一段　${save.trials.includes(`turn-${room}`) ? "✧" : "◇"} E 转动玻璃风花</p><small>${save.trials.includes(`seal-${room}`) ? "已获得风语玻璃签" : "完成两项，留下本庭的风语玻璃签。没有时限，可随时回来。"}</small></section>`;
+  return `<section class="trial-card"><div><small>可选 · 风之邀约</small><strong>${rooms[room].name}</strong></div><p>${save.trials.includes(`rise-${room}`) ? "✧" : "◇"} 借上升风登高一段　${save.trials.includes(`turn-${room}`) ? "✧" : "◇"} F 转动玻璃风花</p><small>${save.trials.includes(`seal-${room}`) ? "已获得风语玻璃签" : "完成两项，留下本庭的风语玻璃签。没有时限，可随时回来。"}</small></section>`;
 }
 function render() {
   const count = save.stones.length,
@@ -298,12 +298,12 @@ function render() {
   if (mode === "pause") {
     const content =
       tab === "旅程"
-        ? `<div class="current-quest"><small>当前目标</small><h3>${escapeHtml(scene.guideObjective.title)}</h3><p>${escapeHtml(scene.guideObjective.detail)} · ${escapeHtml(scene.nextGuideStep.action)}</p><small>光箭头指向下一处落脚点；H 可显示或收起。机关提示靠近时会补充具体按键。</small></div>${journeyMap()}${trialCard()}<p>第一关沿溪向右，帮助露冠守卫苏醒后开启晨光之门；蕨叶浅溪为可选探索。后续花园沿四盏灯环探索高处、溪流与根脉。金色刻痕表示正确折光方向；叶片灯环需要 K 固定平台；守卫灯环需要先束缚或击败守卫。</p><div class="cards">${names.map((n, i) => `<div class="card"><div class="eyebrow">0${i + 1} / ${save.stones.includes(i) ? "AWAKENED" : "WAITING"}</div><h3>${n}</h3><p>${["晨露庭院 · 露冠守卫", "玻璃阶地 · 让光停留", "藤冠高台 · 向彼此生长"][i]}</p><strong>${save.stones.includes(i) ? "✧ 已唤醒" : "◇ 尚在沉睡"}</strong></div>`).join("")}</div><p>旅程时间 ${formatTime(save.elapsed)} · 已唤醒 ${count}/3 座石碑</p>`
+        ? `<div class="current-quest"><small>当前目标</small><h3>${escapeHtml(scene.guideObjective.title)}</h3><p>${escapeHtml(scene.guideObjective.detail)} · ${escapeHtml(scene.nextGuideStep.action)}</p><small>光箭头指向下一处落脚点；H 可显示或收起。机关提示靠近时会补充具体按键。</small></div>${journeyMap()}${trialCard()}<p>第一关沿溪向右，帮助露冠守卫苏醒后开启晨光之门；蕨叶浅溪为可选探索。后续花园沿四盏灯环探索高处、溪流与根脉。金色刻痕表示正确折光方向；叶片灯环需要右键固定平台；守卫灯环需要先束缚或击败守卫。</p><div class="cards">${names.map((n, i) => `<div class="card"><div class="eyebrow">0${i + 1} / ${save.stones.includes(i) ? "AWAKENED" : "WAITING"}</div><h3>${n}</h3><p>${["晨露庭院 · 露冠守卫", "玻璃阶地 · 让光停留", "藤冠高台 · 向彼此生长"][i]}</p><strong>${save.stones.includes(i) ? "✧ 已唤醒" : "◇ 尚在沉睡"}</strong></div>`).join("")}</div><p>旅程时间 ${formatTime(save.elapsed)} · 已唤醒 ${count}/3 座石碑</p>`
         : tab === "日志"
           ? `<ul class="logs">${save.logs.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
           : tab === "背包"
             ? `<div class="cards"><div class="card"><strong>◈ ${save.beads.length} 玻璃珠</strong><p>清晨留下的碎光。收集成果会一直保留。</p></div><div class="card"><strong>✧ ${save.trials.filter((t) => t.startsWith("seal-")).length} / 6 风语玻璃签</strong><p>完成每座花园的乘风与转向邀约，收集不重复的纪念签。</p></div>${save.stones.map((i) => `<div class="card"><strong>${names[i]}印记</strong><p>${stories[i]}</p></div>`).join("")}</div>`
-            : `<p>A / D 或 ← / →：移动（按住 C 慢行）　　空格：跳跃　　S / ↓ + 空格：穿下平台<br>风场：跳起借上升风登高，顺风延长跳跃；按住 S / ↓ 抵风下降；靠近玻璃风花按 E 反转横风 8 秒<br>J：攻击（连按三段，第三段为重斩；空中为空斩；命中后可立刻接下一招）　　Shift：冲刺（冷却 1.1 秒）<br>K：藤蔓束缚（25 光能）　　E：交互<br>Tab：旅程页　　Esc：暂停 / 返回　　H：显示 / 收起引导</p><p>藤蔓可束缚前方敌人 3 秒，或固定标有叶片的移动平台 5 秒。靠近目标后使用。光能会自动恢复；坠落返回安全地面，倒下返回石碑，不丢失玻璃珠。已唤醒石碑可 E 休憩恢复；暂停页可回到检查点，刷新后继续最近的安全落脚处。苔甲与璃翅会先锁定方向、亮起暖金色预警，再扑向前方；可以冲刺穿过或用藤蔓打断。</p>`;
+            : `<p>A / D 或 ← / →：移动（按住 C 慢行）　　空格：跳跃　　S / ↓ + 空格：穿下平台<br>风场：跳起借上升风登高，顺风延长跳跃；按住 S / ↓ 抵风下降；靠近玻璃风花按 F 反转横风 8 秒<br>左键：攻击（连按三段，第三段为重斩；空中为空斩；命中后可立刻接下一招）　　Shift：冲刺（冷却 1.1 秒）<br>右键：藤蔓束缚（25 光能）　　F：交互<br>Tab：旅程页　　Esc：暂停 / 返回　　H：显示 / 收起引导</p><p>藤蔓可束缚前方敌人 3 秒，或固定标有叶片的移动平台 5 秒。靠近目标后使用。光能会自动恢复；坠落返回安全地面，倒下返回石碑，不丢失玻璃珠。已唤醒石碑可 F 休憩恢复；暂停页可回到检查点，刷新后继续最近的安全落脚处。苔甲与璃翅会先锁定方向、亮起暖金色预警，再扑向前方；可以冲刺穿过或用藤蔓打断。</p>`;
     panel = `<div class="eyebrow">TAKE A BREATH</div><h2>暂停 · 旅程手记</h2><div class="tabs">${["旅程", "日志", "背包", "操作"].map((t) => `<button class="btn ${tab === t ? "active" : ""}" data-tab="${t}">${t}</button>`).join("")}</div><div class="page-content">${content}</div><div class="actions"><button class="btn primary" data-action="${scene.started ? "resume" : "title"}">${scene.started ? "继续探索 →" : "返回标题"}</button>${scene.started ? '<button class="btn" data-action="checkpoint" title="保留所有收集和任务进度">回到检查点</button>' : ""}<button class="btn" data-action="restart">重新开始</button><button class="btn" data-action="title">回到标题</button></div>`;
   }
   if (mode === "end")
@@ -330,10 +330,10 @@ function render() {
       }).join("")}</aside>`
     : "";
   if (panel && mode !== "end")
-    panel += `<section class="skill-guide"><h3>剑舞连携 · Q → R → F</h3><p>Q ${SKILLS.branch.name}：${SKILLS.branch.cost} 光，突进斩。R ${SKILLS.rise.name}：${SKILLS.rise.cost} 光，上挑升空，每次离地一次。F ${SKILLS.bloom.name}：${SKILLS.bloom.cost} 光，仅空中三段剑舞。按键会被记住并在可用时放出；命中后可立刻接下一招、冲刺或跳跃，命中还会回复少量光能。</p><p>敌人不会因技能被自动锁定；每次施放保留当前朝向。庭院的训练光影可以反复练习，不提供资源奖励。</p><button class="btn" data-action="training">${scene?.training ? "跳过" : "重开"}训练光影</button></section>`;
+    panel += `<section class="skill-guide"><h3>剑舞连携 · Q → E → R</h3><p>Q ${SKILLS.branch.name}：${SKILLS.branch.cost} 光，突进斩。E ${SKILLS.rise.name}：${SKILLS.rise.cost} 光，上挑升空，每次离地一次。R ${SKILLS.bloom.name}：${SKILLS.bloom.cost} 光，仅空中三段剑舞。按键会被记住并在可用时放出；命中后可立刻接下一招、冲刺或跳跃，命中还会回复少量光能。</p><p>敌人不会因技能被自动锁定；每次施放保留当前朝向。庭院的训练光影可以反复练习，不提供资源奖励。</p><button class="btn" data-action="training">${scene?.training ? "跳过" : "重开"}训练光影</button></section>`;
   const difficultyLocked = !!scene?.arena;
   const difficultySettings = `<label>守卫难度 <select id="difficulty" aria-label="守卫难度" ${difficultyLocked ? "disabled" : ""}><option value="normal" ${(scene?.started ? save.difficulty : selectedDifficulty) !== "challenge" ? "selected" : ""}>普通 · 48 生命</option><option value="challenge" ${(scene?.started ? save.difficulty : selectedDifficulty) === "challenge" ? "selected" : ""}>挑战 · 64 生命</option></select></label>${difficultyLocked ? "<small>战斗中不可切换。先回到检查点，再选择难度。</small>" : ""}`;
-  const markup = `${skillbar}${guidance}<header class="topbar"><div class="brand">晨露之门<small>DEWLIGHT / GATE</small></div><div class="hud"><span class="hearts" aria-label="生命 ${hp} / 5">${Array.from({ length: 5 }, (_, i) => `<svg class="heart ${i < hp ? "full" : "empty"}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21C8 17 2 13 2 7.5C2 2 9 1 12 6C15 1 22 2 22 7.5C22 13 16 17 12 21Z"/></svg>`).join("")}</span><span>光能 <strong>${Math.floor(energy)}</strong><span class="energy"><i style="width:${energy}%"></i></span></span><span>◈ <strong>${save.beads.length.toString().padStart(2, "0")}</strong></span><span>石碑 <strong>${count}/3</strong></span><button class="iconbtn" data-action="pause" aria-label="暂停旅程">Ⅱ</button></div></header><div class="location"><span>THE DEWBOUND JOURNEY</span><b>${["晨露庭院", "玻璃阶地", "藤冠高台"][scene?.region ?? 0]}</b><p>${count === 3 ? "晨光已经归来，继续寻找遗漏的微光。" : `${rooms[Math.min(rooms.length - 1, Math.floor((scene?.x ?? 0) / ROOM_WIDTH))].name} · ${scene?.lensObjective ?? "寻找高处的棱镜"}`}</p></div><footer class="bottom"><div class="keys"><span><kbd>A D</kbd>移动 / C 慢行</span><span><kbd>SPACE</kbd>跳跃 / S+空格 下落</span><span><kbd>J</kbd>攻击</span><span><kbd class="dash-key" style="--ready:${dashReady * 100}%" title="${dashReady >= 1 ? "冲刺已就绪" : "冲刺恢复中"}">SHIFT</kbd>冲刺</span><span><kbd>K</kbd>束缚</span><span><kbd>E</kbd>交互</span><span><kbd>TAB</kbd>旅程</span><span><kbd>H</kbd>引导</span></div><div class="chapter">${scene?.doll.state.active ? (scene.doll.state.recoverReady ? "\u7a7a\u683c / Shift \u00b7 \u53d7\u8eab" : "\u5931\u8861\u4e2d \u00b7 \u7a0d\u540e\u53ef\u53d7\u8eab") : "\u2727 \u8ba9\u5fae\u5c0f\u7684\u5149\uff0c\u5e26\u4f60\u5411\u524d"}</div></footer>${scene?.started && mode === "play" && (hp <= 2 || energy < 25) ? `<div class="resource-status" role="status">${hp <= 2 ? "生命偏低 · 石碑可休憩，Tab 可回检查点" : "光能恢复中 · 束缚需要 25 光能"}</div>` : ""}${scene?.started && mode === "play" && scene.clock - scene.pickupAt < 1.2 ? `<div class="pickup-note" aria-label="收集反馈">✧ +${scene.pickupCount} 玻璃珠</div>` : ""}${performance.now() < toastUntil ? `<div class="toast" role="status">${escapeHtml(toastText)}</div>` : ""}${panel ? `<div class="overlay"><section class="panel">${panel}<div class="settings">${difficultySettings}<label><input id="mute" type="checkbox" ${muted ? "checked" : ""}>静音</label><label>音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label><input id="motion" type="checkbox" ${reduced ? "checked" : ""}>减少动态效果</label><label><input id="guidance" type="checkbox" ${scene?.guideEnabled ? "checked" : ""}>寻路引导</label><label><input id="shake" type="checkbox" ${preferences.shake ? "checked" : ""}>镜头震动</label><label><input id="contrast" type="checkbox" ${preferences.contrast ? "checked" : ""}>清晰界面</label><label>画质 <select id="quality" aria-label="画质" ${graphicsBusy ? "disabled" : ""}><option value="soft" ${quality === "soft" ? "selected" : ""}>轻盈 · 兼容</option><option value="dream" ${quality === "dream" ? "selected" : ""}>绮梦 · 推荐</option><option value="webgpu" ${quality === "webgpu" ? "selected" : ""}>绮梦 · WebGPU</option></select></label><small class="graphics-status" role="status">${graphicsBusy ? "正在准备 WebGPU 光影…" : quality === "webgpu" ? "WebGPU 光影已启用 · 多重光晕与细微折射" : quality === "soft" ? "减少飘花、悬露与雾层，保留场景完整美术" : "完整花园层次与光效 · WebGPU 档需浏览器支持"}</small></div>${storageOK ? "" : '<div class="notice">浏览器无法保存进度，本次旅程仍可正常游玩。</div>'}</section></div>` : ""}`;
+  const markup = `${skillbar}${guidance}<header class="topbar"><div class="brand">晨露之门<small>DEWLIGHT / GATE</small></div><div class="hud"><span class="hearts" aria-label="生命 ${hp} / 5">${Array.from({ length: 5 }, (_, i) => `<svg class="heart ${i < hp ? "full" : "empty"}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21C8 17 2 13 2 7.5C2 2 9 1 12 6C15 1 22 2 22 7.5C22 13 16 17 12 21Z"/></svg>`).join("")}</span><span>光能 <strong>${Math.floor(energy)}</strong><span class="energy"><i style="width:${energy}%"></i></span></span><span>◈ <strong>${save.beads.length.toString().padStart(2, "0")}</strong></span><span>石碑 <strong>${count}/3</strong></span><button class="iconbtn" data-action="pause" aria-label="暂停旅程">Ⅱ</button></div></header><div class="location"><span>THE DEWBOUND JOURNEY</span><b>${["晨露庭院", "玻璃阶地", "藤冠高台"][scene?.region ?? 0]}</b><p>${count === 3 ? "晨光已经归来，继续寻找遗漏的微光。" : `${rooms[Math.min(rooms.length - 1, Math.floor((scene?.x ?? 0) / ROOM_WIDTH))].name} · ${scene?.lensObjective ?? "寻找高处的棱镜"}`}</p></div><footer class="bottom"><div class="keys"><span><kbd>A D</kbd>移动 / C 慢行</span><span><kbd>SPACE</kbd>跳跃 / S+空格 下落</span><span><kbd>左键</kbd>攻击</span><span><kbd class="dash-key" style="--ready:${dashReady * 100}%" title="${dashReady >= 1 ? "冲刺已就绪" : "冲刺恢复中"}">SHIFT</kbd>冲刺</span><span><kbd>右键</kbd>束缚</span><span><kbd>F</kbd>交互</span><span><kbd>TAB</kbd>旅程</span><span><kbd>H</kbd>引导</span></div><div class="chapter">${scene?.doll.state.active ? (scene.doll.state.recoverReady ? "\u7a7a\u683c / Shift \u00b7 \u53d7\u8eab" : "\u5931\u8861\u4e2d \u00b7 \u7a0d\u540e\u53ef\u53d7\u8eab") : "\u2727 \u8ba9\u5fae\u5c0f\u7684\u5149\uff0c\u5e26\u4f60\u5411\u524d"}</div></footer>${scene?.started && mode === "play" && (hp <= 2 || energy < 25) ? `<div class="resource-status" role="status">${hp <= 2 ? "生命偏低 · 石碑可休憩，Tab 可回检查点" : "光能恢复中 · 束缚需要 25 光能"}</div>` : ""}${scene?.started && mode === "play" && scene.clock - scene.pickupAt < 1.2 ? `<div class="pickup-note" aria-label="收集反馈">✧ +${scene.pickupCount} 玻璃珠</div>` : ""}${performance.now() < toastUntil ? `<div class="toast" role="status">${escapeHtml(toastText)}</div>` : ""}${panel ? `<div class="overlay"><section class="panel">${panel}<div class="settings">${difficultySettings}<label><input id="mute" type="checkbox" ${muted ? "checked" : ""}>静音</label><label>音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label><input id="motion" type="checkbox" ${reduced ? "checked" : ""}>减少动态效果</label><label><input id="guidance" type="checkbox" ${scene?.guideEnabled ? "checked" : ""}>寻路引导</label><label><input id="shake" type="checkbox" ${preferences.shake ? "checked" : ""}>镜头震动</label><label><input id="contrast" type="checkbox" ${preferences.contrast ? "checked" : ""}>清晰界面</label><label>画质 <select id="quality" aria-label="画质" ${graphicsBusy ? "disabled" : ""}><option value="soft" ${quality === "soft" ? "selected" : ""}>轻盈 · 兼容</option><option value="dream" ${quality === "dream" ? "selected" : ""}>绮梦 · 推荐</option><option value="webgpu" ${quality === "webgpu" ? "selected" : ""}>绮梦 · WebGPU</option></select></label><small class="graphics-status" role="status">${graphicsBusy ? "正在准备 WebGPU 光影…" : quality === "webgpu" ? "WebGPU 光影已启用 · 多重光晕与细微折射" : quality === "soft" ? "减少飘花、悬露与雾层，保留场景完整美术" : "完整花园层次与光效 · WebGPU 档需浏览器支持"}</small></div>${storageOK ? "" : '<div class="notice">浏览器无法保存进度，本次旅程仍可正常游玩。</div>'}</section></div>` : ""}`;
   ui.dataset.mode = mode;
   ui.dataset.motion = reduced ? "reduced" : "full";
   ui.dataset.contrast = preferences.contrast ? "high" : "normal";
@@ -833,8 +833,8 @@ class Journey extends Phaser.Scene {
             : "唤醒晨露碑",
         detail:
           this.guardian.hp > 0
-            ? "按住 J 连击 · 红纹躲冲锋，金纹跳根浪 · K 打断 · T 重试"
-            : "E · 守卫已经让开道路",
+            ? "按住左键连击 · 红纹躲冲锋，金纹跳根浪 · 右键打断 · T 重试"
+            : "F · 守卫已经让开道路",
       };
     if (room === 0 && save.stones.includes(0))
       return {
@@ -844,7 +844,7 @@ class Journey extends Phaser.Scene {
         room: 0,
         order: 5,
         title: "第一关完成 · 前往玻璃阶地",
-        detail: "E · 穿过晨光之门",
+        detail: "F · 穿过晨光之门",
       };
     const stone = Math.floor(room / 2);
     if (room % 2 === 1 && !save.stones.includes(stone))
@@ -855,7 +855,7 @@ class Journey extends Phaser.Scene {
         room,
         order: 4,
         title: `唤醒${names[stone]}`,
-        detail: "E · 唤醒石碑，留下检查点",
+        detail: "F · 唤醒石碑，留下检查点",
       };
     return {
       id: `gate-${room}`,
@@ -931,17 +931,17 @@ class Journey extends Phaser.Scene {
   prismHint(p: Prism) {
     if (save.lenses.includes(p.id)) return "✧ 光路已接通";
     if (p.mechanic === "reflect")
-      return `E · 旋转镜面 ${["↑", "→", "↓", "←"][save.angles[p.id] ?? 0]} 对齐 ${["↑", "→", "↓", "←"][p.direction]}`;
+      return `F · 旋转镜面 ${["↑", "→", "↓", "←"][save.angles[p.id] ?? 0]} 对齐 ${["↑", "→", "↓", "←"][p.direction]}`;
     if (p.mechanic === "hold") {
       if (
         platforms.some(
           (v) => v.receiver === p.id && (v.frozen ?? 0) > this.clock,
         )
       )
-        return "E · 叶台已固定，按下引光";
+        return "F · 叶台已固定，按下引光";
       return this.energy < 25
-        ? "等待光能恢复至 25，再 K 固定叶台"
-        : "K · 固定叶台，再 E 引光";
+        ? "等待光能恢复至 25，再右键固定叶台"
+        : "右键 · 固定叶台，再 F 引光";
     }
     if (p.mechanic === "guard") {
       if (
@@ -949,12 +949,12 @@ class Journey extends Phaser.Scene {
           (e) => e.guard === p.id && e.hp > 0 && e.bound <= this.clock,
         )
       )
-        return "E · 守卫已安静，按下引光";
+        return "F · 守卫已安静，按下引光";
       return this.energy < 25
-        ? "等待光能恢复，或 J 击退守卫"
-        : "K · 束缚守卫，再 E 引光";
+        ? "等待光能恢复，或左键击退守卫"
+        : "右键 · 束缚守卫，再 F 引光";
     }
-    return `E · 点亮${p.name}`;
+    return `F · 点亮${p.name}`;
   }
   activatePrism(p: Prism) {
     if (save.lenses.includes(p.id)) {
@@ -971,7 +971,7 @@ class Journey extends Phaser.Scene {
         (v) => v.receiver === p.id && (v.frozen ?? 0) > this.clock,
       )
     ) {
-      toast("露水镜需要安静的落脚处：先 K 固定脚下的叶片平台，再按 E。");
+      toast("露水镜需要安静的落脚处：先右键固定脚下的叶片平台，再按 F。");
       return;
     }
     if (
@@ -980,7 +980,7 @@ class Journey extends Phaser.Scene {
         (e) => e.guard === p.id && e.hp > 0 && e.bound <= this.clock,
       )
     ) {
-      toast("守卫还在扰动光线。先用 K 束缚它，或用 J 轻轻击退。");
+      toast("守卫还在扰动光线。先用右键束缚它，或用左键轻轻击退。");
       return;
     }
     if (p.mechanic === "reflect") {
@@ -1003,7 +1003,7 @@ class Journey extends Phaser.Scene {
             "第一点微光亮起。沿前方矮台继续，不必返回门廊。",
             "露珠落在溪畔。顺着右侧的光继续前进。",
             "守卫的灯种就在右方，接住它会唤醒守卫。",
-            "四点微光唤醒了露冠守卫。向右进入空地，J 攻击、Shift 躲避、K 束缚。",
+            "四点微光唤醒了露冠守卫。向右进入空地，左键攻击、Shift 躲避、右键束缚。",
           ][p.order]
         : p.order === 3
           ? "四盏灯环已相连。落回地面，沿右方继续旅程。"
@@ -1030,8 +1030,43 @@ class Journey extends Phaser.Scene {
       .setResolution(pixelRatio())
       .setDepth(5);
     this.keys = this.input.keyboard!.addKeys(
-      "A,D,LEFT,RIGHT,S,DOWN,SPACE,J,K,E,SHIFT,C,Q,R,F",
+      "A,D,LEFT,RIGHT,S,DOWN,SPACE,E,SHIFT,C,Q,R,F",
     ) as typeof this.keys;
+    // The mouse buttons act as two more keys: left attacks, right binds.
+    for (const name of ["ATTACK", "BIND"])
+      this.keys[name] = {
+        isDown: false,
+        _justDown: false,
+      } as unknown as Phaser.Input.Keyboard.Key;
+    const button = (event: MouseEvent) =>
+      event.button === 0 ? "ATTACK" : event.button === 2 ? "BIND" : undefined;
+    window.addEventListener("mousedown", (event) => {
+      const name = button(event);
+      // Clicks on the interface belong to the interface.
+      if (
+        !name ||
+        mode !== "play" ||
+        (event.target as Element | null)?.closest?.(
+          "button, a, select, input, label, [data-action]",
+        )
+      )
+        return;
+      event.preventDefault();
+      const key = this.keys[name] as unknown as {
+        isDown: boolean;
+        _justDown: boolean;
+      };
+      key.isDown = key._justDown = true;
+      this.pendingKeys.add(name);
+    });
+    window.addEventListener("mouseup", (event) => {
+      const name = button(event);
+      if (name) this.keys[name].isDown = false;
+    });
+    // The right button is a game button while playing, not a menu.
+    window.addEventListener("contextmenu", (event) => {
+      if (mode === "play") event.preventDefault();
+    });
     this.input.keyboard!.on("keydown", (event: KeyboardEvent) => {
       if (event.repeat || mode !== "play") return;
       const aliases: Record<string, string> = {
@@ -1123,6 +1158,13 @@ class Journey extends Phaser.Scene {
     if (manager)
       (manager as unknown as { queue: KeyboardEvent[] }).queue.length = 0;
     this.input.keyboard?.resetKeys();
+    for (const name of ["ATTACK", "BIND"]) {
+      const key = this.keys[name] as unknown as {
+        isDown: boolean;
+        _justDown: boolean;
+      };
+      if (key) key.isDown = key._justDown = false;
+    }
     this.jumpAt = -999;
     this.bindInputAt = -999;
     this.dashInputAt = -999;
@@ -1295,9 +1337,9 @@ class Journey extends Phaser.Scene {
       const jump = this.pressed("SPACE"),
         dash = this.pressed("SHIFT");
       if (jump || dash) this.doll.requestRecovery();
-      this.pressed("J");
-      this.pressed("K");
-      this.pressed("E");
+      this.pressed("ATTACK");
+      this.pressed("BIND");
+      this.pressed("F");
       this.doll.tick(dt, this.onGround, this.vx);
     }
     const dashing = now - this.dashAt < 0.19;
@@ -1314,8 +1356,8 @@ class Journey extends Phaser.Scene {
         );
     if (
       !locked &&
-      (this.pressed("J") ||
-        (this.arena && this.down("J") && !this.skills.pending))
+      (this.pressed("ATTACK") ||
+        (this.arena && this.down("ATTACK") && !this.skills.pending))
     )
       this.skills.request(
         nextAttack(this.onGround, this.lastMove, now - this.lastMoveAt),
@@ -1462,7 +1504,7 @@ class Journey extends Phaser.Scene {
       this.jumpAt = -999;
       sound(400);
     }
-    if (!locked && this.pressed("K")) this.bindInputAt = now;
+    if (!locked && this.pressed("BIND")) this.bindInputAt = now;
     if (
       now - this.bindInputAt < 0.2 &&
       now - this.bindAt > 0.45 &&
@@ -1672,7 +1714,7 @@ class Journey extends Phaser.Scene {
           if (!save.logs.includes(story)) save.logs.push(story);
           persist();
           toast(
-            "露冠守卫醒来了。J 连击 · 红色箭纹躲冲锋 · 金色地纹跳根浪 · K 打断并打开破绽",
+            "露冠守卫醒来了。左键连击 · 红色箭纹躲冲锋 · 金色地纹跳根浪 · 右键打断并打开破绽",
           );
         }
         if (result.damage)
@@ -1749,8 +1791,8 @@ class Journey extends Phaser.Scene {
         .setPosition(s.x - 70, s.y - 165)
         .setText(
           save.stones.includes(interact)
-            ? `E · 在${names[interact]}休憩`
-            : `E · 唤醒${names[interact]}`,
+            ? `F · 在${names[interact]}休憩`
+            : `F · 唤醒${names[interact]}`,
         );
     } else if (prism) {
       this.label
@@ -1770,12 +1812,12 @@ class Journey extends Phaser.Scene {
     } else if (memory)
       this.label
         .setPosition(memory.x - 60, memory.y - 100)
-        .setText("E · 读取微光记忆");
+        .setText("F · 读取微光记忆");
     if (save.stones.includes(0) && this.x > 3480 && this.x < 3720) {
       this.label
         .setVisible(true)
         .setPosition(3450, 920)
-        .setText("E · 第一关完成，前往玻璃阶地");
+        .setText("F · 第一关完成，前往玻璃阶地");
     }
     if (
       save.stones.includes(0) &&
@@ -1785,9 +1827,9 @@ class Journey extends Phaser.Scene {
       this.label
         .setVisible(true)
         .setPosition(12000, 970)
-        .setText("E · 回访晨露庭院（可选探索）");
+        .setText("F · 回访晨露庭院（可选探索）");
     }
-    if (!locked && !this.skillPose && this.pressed("E")) {
+    if (!locked && !this.skillPose && this.pressed("F")) {
       if (
         save.stones.includes(0) &&
         Math.abs(this.x - 12080) < 85 &&
@@ -1894,8 +1936,8 @@ class Journey extends Phaser.Scene {
         this.regionSeen.add(region);
         const t =
           region === 1
-            ? "玻璃阶地：J 攻击，Shift 冲刺；留意敌人的金红色预警。"
-            : "藤冠高台：用 K 束缚影子，也能固定带叶片的平台。";
+            ? "玻璃阶地：左键攻击，Shift 冲刺；留意敌人的金红色预警。"
+            : "藤冠高台：用右键束缚影子，也能固定带叶片的平台。";
         if (!save.logs.includes(t)) save.logs.push(t);
         toast(t);
       }
@@ -2120,7 +2162,7 @@ class Journey extends Phaser.Scene {
     g.clear();
     if (this.training && this.x < 1100) {
       this.worldText(
-        "训练光影 · Q 突进 → R 升锋 → F 空中回旋",
+        "训练光影 · Q 突进 → E 升锋 → R 空中回旋",
         510,
         995,
         13,

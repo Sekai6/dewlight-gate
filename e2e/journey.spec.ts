@@ -48,7 +48,7 @@ test("石碑检查点、坠落与倒下、资源去重、刷新恢复和重新�
     s.vy = 0;
   });
   await page.waitForTimeout(100);
-  await page.keyboard.press("e", { delay: 80 });
+  await page.keyboard.press("f", { delay: 80 });
   const before = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("dewlight.save.v2")!),
   );

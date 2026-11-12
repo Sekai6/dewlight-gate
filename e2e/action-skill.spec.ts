@@ -8,13 +8,13 @@ test("Q/R/F keyboard linkage, pause, resource feedback and legacy save", async (
   await page.goto("/");
   await page.locator('[data-action="new"]').click();
   await expect(page.locator(".skill-slot")).toHaveCount(3);
-  await page.keyboard.press("f");
+  await page.keyboard.press("r");
   await expect(page.locator(".toast")).toContainText("仅空中");
   await page.keyboard.press("q");
   await page.waitForTimeout(170);
-  await page.keyboard.press("r");
+  await page.keyboard.press("e");
   await page.waitForTimeout(350);
-  await page.keyboard.press("f");
+  await page.keyboard.press("r");
   await page.waitForTimeout(180);
   const state = await page.evaluate(() => {
     const s = (window as any).dewlight.scene.getScene("journey");
