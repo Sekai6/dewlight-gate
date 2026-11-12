@@ -42,6 +42,8 @@ export interface Enemy {
   edgeMin?: number;
   edgeMax?: number;
   corpse?: Corpse;
+  /** Remaining knock-back speed. */
+  shove?: number;
 }
 
 export function liftCreature(e: Enemy) {
@@ -59,7 +61,13 @@ export function liftCreature(e: Enemy) {
 
 const clamp = (v: number, min: number, max: number) =>
   Math.max(min, Math.min(max, v));
-export function hurtCreature(e: Enemy, time: number, direction: number) {
+/** `push` is how far the blow shoves the creature, in pixels. */
+export function hurtCreature(
+  e: Enemy,
+  time: number,
+  direction: number,
+  push = 12,
+) {
   if (e.hp <= 0) return;
   e.hp--;
   e.hurtAt = time;
@@ -69,6 +77,8 @@ export function hurtCreature(e: Enemy, time: number, direction: number) {
   e.warn = 0;
   e.cool = time + 0.65;
   e.x = clamp(e.x + direction * 12, e.minX, e.maxX);
+  // The rest of a heavy shove plays out over the next moments.
+  e.shove = direction * Math.max(0, push - 12) * SHOVE_RATE;
   if (e.hp <= 0) {
     e.diedAt = time;
     e.liftVy = undefined;
@@ -85,7 +95,10 @@ export function hurtCreature(e: Enemy, time: number, direction: number) {
     );
     e.corpse = {
       doll,
-      vx: doll.state.direction * doll.profile.horizontal,
+      vx:
+        doll.state.direction *
+        doll.profile.horizontal *
+        (1 + Math.max(0, push - 12) / 80),
       vy: -doll.profile.upward,
       x: e.x,
       y: e.y,
@@ -94,6 +107,8 @@ export function hurtCreature(e: Enemy, time: number, direction: number) {
 }
 
 const GRAVITY = 1350;
+/** A shove decays at this rate per second; its travel is speed / rate. */
+const SHOVE_RATE = 10;
 function stepCorpse(e: Enemy, time: number, dt: number) {
   const c = e.corpse!;
   if (c.restAt !== undefined) return;
@@ -134,6 +149,11 @@ export function stepCreature(
   if (e.hp <= 0) {
     if (e.corpse) stepCorpse(e, time, dt);
     return false;
+  }
+  if (e.shove) {
+    e.x = clamp(e.x + e.shove * dt, e.minX, e.maxX);
+    e.shove *= Math.exp(-dt * SHOVE_RATE);
+    if (Math.abs(e.shove) < 4) e.shove = 0;
   }
   if (e.liftVy !== undefined) {
     e.liftVy += 1000 * dt;

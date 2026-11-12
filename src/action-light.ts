@@ -30,7 +30,11 @@ export class ActionLight {
       .setBlendMode(Phaser.BlendModes.ADD);
   }
   draw(p: HeroPose, title: boolean, reduced: boolean) {
-    const attackAge = p.clock - p.attackAt,
+    // A landed hit lights up like a swing at its brightest moment.
+    const attackAge = Math.min(
+        p.clock - p.attackAt,
+        p.clock - (p.strikeAt ?? -999) + 0.12,
+      ),
       castAge = p.clock - p.bindAt;
     const attack =
       attackAge >= 0.07 && attackAge < 0.32

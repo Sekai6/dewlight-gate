@@ -1,6 +1,7 @@
 import type { Bone, Clip, Track } from "@dewlight/action-a";
 import type { RigDefinition } from "@dewlight/action-a";
 import { skillClip } from "./skill-clips.ts";
+import { SWORD_ATTACKS } from "./skills.ts";
 import { ATTACKS, LOOPING, TIMING, type Action } from "./actions.ts";
 export type ActorKind = "hero" | "moss" | "moth" | "guardian";
 /** Rig data; the behaviour hooks are attached in actors.ts. */
@@ -344,6 +345,7 @@ export function getClip(rig: Rig, action: string): Clip {
     slash: TIMING.attack,
     "rising-slash": TIMING.attack,
     "air-slash": TIMING.attack,
+    finisher: SWORD_ATTACKS.slash3.duration,
     dash: TIMING.dash,
     bind: TIMING.bind,
     hurt: hero ? TIMING.hurtHero : TIMING.hurt,
@@ -370,9 +372,14 @@ export function getClip(rig: Rig, action: string): Clip {
         ? 0.025
         : action === "defeat"
           ? 0.045
-          : ["slash", "rising-slash", "air-slash", "strike", "slam"].includes(
-                action,
-              )
+          : [
+                "slash",
+                "rising-slash",
+                "air-slash",
+                "finisher",
+                "strike",
+                "slam",
+              ].includes(action)
             ? 0.035
             : action === "dash"
               ? 0.025
@@ -382,7 +389,52 @@ export function getClip(rig: Rig, action: string): Clip {
   };
   const add = (bone: string, channel: Track["channel"], values: number[]) =>
     clip.tracks.push(track(bone, channel, d, values));
-  if (ATTACKS.has(action)) {
+  if (action === "finisher") {
+    // Overhead chop: both arms rise as the body arches back, then everything
+    // comes down into a deep forward crouch and settles.
+    const slash3 = SWORD_ATTACKS.slash3;
+    const times = [
+      0,
+      0.05,
+      0.08,
+      slash3.hits[0].at,
+      0.18,
+      0.32,
+      slash3.duration,
+    ];
+    const arm = [-0.2, 2.4, 1.2, -1.2, -2.2, -0.7, -0.2];
+    const fore = [-0.4, -1.7, -0.8, 0.1, 0.7, 0.1, -0.4];
+    const torso = [0, -0.5, -0.3, 0.3, 0.6, 0.25, 0];
+    const blade = [0.4, -1, -0.2, 0.6, 2.7, 1.6, 0.4];
+    const timed = (bone: string, channel: Track["channel"], values: number[]) =>
+      clip.tracks.push({
+        bone,
+        channel,
+        unwrapped: true,
+        keys: values.map((value, i) => ({
+          time: times[i],
+          value,
+          ease: "smooth",
+        })),
+      });
+    timed("arm", "rotation", arm);
+    timed("arm", "x", [9, 6, 8, 12, 14, 11, 9]);
+    timed("fore", "rotation", fore);
+    timed(
+      "weapon",
+      "rotation",
+      blade.map((a, i) => a - arm[i] - fore[i] - torso[i]),
+    );
+    timed("torso", "rotation", torso);
+    timed("head", "rotation", [0, 0.2, 0.1, -0.12, -0.22, -0.08, 0]);
+    timed("hip", "x", [0, -7, -2, 6, 10, 4, 0]);
+    timed("hip", "y", [-30, -34, -32, -27, -23, -27, -30]);
+    timed("armBack", "rotation", [0.2, 1.6, 1.1, -0.6, -1, -0.2, 0.2]);
+    timed("foreBack", "rotation", [-0.3, -1.2, -0.9, -0.3, -0.5, -0.35, -0.3]);
+    timed("torso", "scaleY", [1, 1.07, 1.03, 0.95, 0.9, 0.97, 1]);
+    timed("torso", "scaleX", [1, 0.95, 0.98, 1.04, 1.08, 1.02, 1]);
+    clip.events = [{ time: 0.08, name: "swing" }];
+  } else if (ATTACKS.has(action)) {
     // Pose keys at 0 / .06 / .085 (damage) / .16 / .27 / .38 seconds.
     const up = action === "rising-slash";
     const times = [0, 0.06, 0.075, 0.085, 0.16, 0.27, 0.38];

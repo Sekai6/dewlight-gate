@@ -1,7 +1,9 @@
 import { clamp, type Track, type BoneMask } from "@dewlight/action-a";
 import type { CombatMotionDefinition } from "@dewlight/action-a";
 import { SKILL_DURATION, TIMING } from "./actions.ts";
-import { SKILLS } from "./skills.ts";
+import { SKILLS, SWORD_ATTACKS } from "./skills.ts";
+
+const SLASH3 = SWORD_ATTACKS.slash3;
 
 const { branch: BRANCH, rise: RISE, bloom: BLOOM } = SKILLS;
 
@@ -54,6 +56,14 @@ export const COMBAT_MOTIONS = {
   slash: definition(false),
   "rising-slash": definition(true),
   "air-slash": definition(false),
+  // Raised overhead, then driven down past the front foot.
+  finisher: skillMotion(
+    [0, 0.05, SLASH3.hits[0].at, 0.18, 0.32, SLASH3.duration],
+    [0.06, 0.3],
+    [6, -4, 22, 27, 16, 6],
+    [19, -14, -6, 22, 25, 19],
+    [0.4, -1, 0.6, 2.7, 1.6, 0.4],
+  ),
   "skill-branch": skillMotion(
     [0, 0.07, BRANCH.release, 0.17, BRANCH.recovery, BRANCH.duration],
     [0.09, 0.26],

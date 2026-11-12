@@ -67,6 +67,9 @@ export interface DewGuardian {
   attacks: number;
   struck: boolean;
   hurtUntil: number;
+  /** When and from which side a blade last landed; visual recoil only. */
+  flinchAt: number;
+  flinchDir: number;
   boundUntil: number;
   bindReadyAt: number;
   phaseAt: number;
@@ -104,6 +107,8 @@ export function createGuardian(
     attacks: 0,
     struck: false,
     hurtUntil: -1,
+    flinchAt: -999,
+    flinchDir: 1,
     boundUntil: -1,
     bindReadyAt: -1,
     phaseAt: 0,

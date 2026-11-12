@@ -56,7 +56,9 @@ test("Q/R/F keyboard linkage, pause, resource feedback and legacy save", async (
     const s = (window as any).dewlight.scene.getScene("journey");
     return {
       active: s.skills.active,
-      cd: s.skills.cooldowns,
+      cd: Object.fromEntries(
+        ["branch", "bloom", "rise"].map((id) => [id, s.skills.cooldowns[id]]),
+      ),
       energy: s.energy,
     };
   });

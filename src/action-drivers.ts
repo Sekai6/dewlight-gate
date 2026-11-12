@@ -3,10 +3,11 @@ import type { HeroPose } from "./art";
 import type { Enemy } from "./creature";
 import type { DewGuardian } from "./boss";
 import type { ActorInput } from "@dewlight/action-a";
-import { ATTACKS, TIMING, type Action } from "./content/actions.ts";
+import { TIMING, type Action } from "./content/actions.ts";
+import { MOVES } from "./content/skills.ts";
 
 export function heroAction(p: HeroPose, reduced = false): ActorInput {
-  let action: Action = "idle",
+  let action: string = "idle",
     age = p.clock;
   const since = (at = -999) => p.clock - at;
   const choose = (name: Action, at: number) => {
@@ -16,15 +17,13 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
   if (p.dollPose?.active) choose("hurt", p.hurtAt);
   else if (since(p.hurtAt) >= 0 && since(p.hurtAt) < TIMING.hurtHero)
     choose("hurt", p.hurtAt);
-  else if (p.skillPose) {
-    action = `skill-${p.skillPose.id}`;
-    age = p.skillPose.age;
+  else if (p.movePose) {
+    // Sword attacks and skills are both moves; each names its own action.
+    action = MOVES[p.movePose.id].action;
+    age = p.movePose.age;
   } else if (since(p.dashAt) >= 0 && since(p.dashAt) < TIMING.dash)
     choose("dash", p.dashAt);
-  else if (since(p.attackAt) >= 0 && since(p.attackAt) < TIMING.attack) {
-    // attackStyle is stable for this attack; landing must not restart its clip.
-    choose(p.attackStyle ? "rising-slash" : "slash", p.attackAt);
-  } else if (since(p.bindAt) >= 0 && since(p.bindAt) < TIMING.bind)
+  else if (since(p.bindAt) >= 0 && since(p.bindAt) < TIMING.bind)
     choose("bind", p.bindAt);
   else if (!p.onGround && since(p.launchAt) < TIMING.launch)
     choose("launch", p.launchAt!);
@@ -43,11 +42,7 @@ export function heroAction(p: HeroPose, reduced = false): ActorInput {
     dollFloor: p.dollFloor,
 
     y: p.y,
-    instance: p.skillPose
-      ? `skill:${p.skillPose.instance}`
-      : ATTACKS.has(action)
-        ? `attack:${p.attackAt}`
-        : undefined,
+    instance: p.movePose ? `move:${p.movePose.instance}` : undefined,
     support: p.support,
     landingSpeed: p.landingSpeed,
     clock: p.clock,
@@ -153,6 +148,12 @@ export function guardianAction(
     radiance: "radiance",
     "combo-gap": "recover",
   };
+  // A landed blade rocks the body back over its planted feet.
+  const u = (clock - b.flinchAt) / 0.24;
+  const flinch =
+    reduced || u < 0 || u >= 1
+      ? 0
+      : b.flinchDir * 9 * Math.sin(Math.PI * u) * (1 - u);
   return {
     intentTarget: !["sleep", "defeated", "intro"].includes(b.phase)
       ? target
@@ -171,7 +172,7 @@ export function guardianAction(
     ].includes(b.phase)
       ? b.facing
       : undefined,
-    x: b.x,
+    x: b.x + flinch,
     y: b.y,
     clock,
     facing: b.facing,
