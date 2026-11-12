@@ -1,4 +1,17 @@
+import { DollHitController } from "./action-a/doll-hit/state.ts";
+
 export type CreaturePhase = "patrol" | "windup" | "strike" | "recover";
+/** A defeated creature's body, knocked away and left to settle. Visual only. */
+export interface Corpse {
+  doll: DollHitController;
+  vx: number;
+  vy: number;
+  /** Where it was defeated; reduced motion keeps the body there. */
+  x: number;
+  y: number;
+  /** Time the body came to rest; it fades from then on. */
+  restAt?: number;
+}
 export interface Enemy {
   x: number;
   y: number;
@@ -24,9 +37,18 @@ export interface Enemy {
   gait: number;
   liftVy?: number;
   liftOffset?: number;
+  /** How far a knocked-out body may travel on its platform. */
+  edgeMin?: number;
+  edgeMax?: number;
+  corpse?: Corpse;
 }
 
 export function liftCreature(e: Enemy) {
+  if (e.corpse) {
+    // A finishing launcher sends the body up instead of away.
+    e.corpse.vy = -520;
+    e.corpse.vx *= 0.35;
+  }
   if (e.hp <= 0) return;
   e.liftVy = e.type ? -170 : -340;
   e.liftOffset = Math.min(0, e.liftOffset ?? 0);
@@ -46,7 +68,59 @@ export function hurtCreature(e: Enemy, time: number, direction: number) {
   e.warn = 0;
   e.cool = time + 0.65;
   e.x = clamp(e.x + direction * 12, e.minX, e.maxX);
-  if (e.hp <= 0) e.diedAt = time;
+  if (e.hp <= 0) {
+    e.diedAt = time;
+    e.liftVy = undefined;
+    const doll = new DollHitController();
+    doll.start(
+      {
+        kind: "defeat",
+        sourceX: e.x - direction,
+        sourceY: e.y,
+        direction,
+        instance: `${e.id}:defeat`,
+      },
+      true,
+    );
+    e.corpse = {
+      doll,
+      vx: doll.state.direction * doll.profile.horizontal,
+      vy: -doll.profile.upward,
+      x: e.x,
+      y: e.y,
+    };
+  }
+}
+
+const GRAVITY = 1350;
+function stepCorpse(e: Enemy, time: number, dt: number) {
+  const c = e.corpse!;
+  if (c.restAt !== undefined) return;
+  const min = e.edgeMin ?? e.minX,
+    max = e.edgeMax ?? e.maxX;
+  let remaining = Math.min(dt, 0.25);
+  while (remaining > 1e-8) {
+    const h = Math.min(1 / 120, remaining);
+    remaining -= h;
+    const grounded = e.y >= e.floor;
+    c.doll.tick(h, grounded, c.vx);
+    c.vx = c.doll.drag(c.vx, h, grounded);
+    c.vy += GRAVITY * h;
+    const x = e.x + c.vx * h;
+    e.x = clamp(x, min, max);
+    // The platform edge stops the body; it never slides off into the air.
+    if (e.x !== x) c.vx = 0;
+    e.y += c.vy * h;
+    if (e.y >= e.floor && c.vy >= 0) {
+      e.y = e.floor;
+      c.vy = c.doll.land(c.vy);
+    }
+  }
+  if (
+    (c.doll.state.phase === "down" && Math.abs(c.vx) < 8) ||
+    time - e.diedAt > 4
+  )
+    c.restAt = time;
 }
 
 /** Simulated time only: menus, blur and hidden tabs freeze every attack stage. */
@@ -56,7 +130,10 @@ export function stepCreature(
   dt: number,
   player: { x: number; y: number },
 ) {
-  if (e.hp <= 0) return false;
+  if (e.hp <= 0) {
+    if (e.corpse) stepCorpse(e, time, dt);
+    return false;
+  }
   if (e.liftVy !== undefined) {
     e.liftVy += 1000 * dt;
     e.liftOffset = (e.liftOffset ?? 0) + e.liftVy * dt;

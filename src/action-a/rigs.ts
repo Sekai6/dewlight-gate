@@ -31,8 +31,9 @@ export interface RigDefinition {
   extent: number;
   /** Never touches the ground: always airborne, wing-driven body motion. */
   flying: boolean;
-  /** Has a weapon arm: grip IK, sword trail, masked combat, hit ragdoll, recovery. */
+  /** Has a weapon arm: grip IK, sword trail, masked combat, get-up recovery. */
   armed: boolean;
+  doll: DollTuning;
   motion: {
     /** Use the driver's velocity as is; otherwise derive it from displacement. */
     trustVelocity: boolean;
@@ -57,6 +58,25 @@ export interface RigDefinition {
     originY?: number;
     depth?: number;
   }[];
+}
+/** How the body behaves as a hit ragdoll. */
+export interface DollTuning {
+  /** Spring pulling each hand and foot back to its posed place. */
+  stiffness: number;
+  damping: number;
+  /** Extra downward pull on the loose end points. */
+  gravity: number;
+  /** Radians a limb may swing away from its posed direction. */
+  cone: number;
+  /** Head counter-rotation per rad/s of spin, and its limit in radians. */
+  headLag: number;
+  headLimit: number;
+  /** Chest lag per rad/s of spin, its limit, the airborne curl, and the
+   *  fold kicked in by an impact. */
+  spine: number;
+  spineLimit: number;
+  curl: number;
+  jolt: number;
 }
 export interface ArmLengths {
   upper: number;
@@ -305,6 +325,18 @@ export function createRig(kind: ActorKind): RigDefinition {
     extent: boss ? 256 : 128,
     flying: moth,
     armed: hero,
+    doll: {
+      stiffness: 100,
+      damping: 7,
+      gravity: 150,
+      cone: 1.25,
+      headLag: 0.018,
+      headLimit: 0.22,
+      spine: 0.03,
+      spineLimit: 0.5,
+      curl: 0.22,
+      jolt: 5,
+    },
     motion: {
       trustVelocity: hero,
       runSpeed: boss ? 460 : 264,

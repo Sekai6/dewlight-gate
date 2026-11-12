@@ -146,13 +146,10 @@ export class ActionActor {
       rigidify(state.world.weapon);
       state.contact.beginFrame();
       solveLegs(state, input, previous);
-      if (rig.armed) {
-        if (!input.doll?.active) this.grip.solve(input, dt);
-        else {
-          this.doll.apply(input, dt);
-          this.blade.clear();
-        }
-      }
+      if (input.doll?.active) {
+        this.doll.apply(input, dt);
+        this.blade.clear();
+      } else if (rig.armed) this.grip.solve(input, dt);
       braceHand(state, input);
       state.contact.endFrame(dt);
       this.follow.apply(pose, input, dt);

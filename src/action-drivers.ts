@@ -74,6 +74,28 @@ export function creatureAction(
   reduced = false,
   target?: import("./action-a/intent/controller").IntentTarget,
 ): ActorInput {
+  const corpse = e.hp <= 0 ? e.corpse : undefined;
+  if (corpse && !reduced)
+    // Knocked out: the body tumbles as a ragdoll, then fades where it rests.
+    return {
+      x: e.x,
+      y: e.y,
+      clock,
+      facing: e.dir,
+      action: "hurt",
+      age: clock - e.diedAt,
+      instance: `${e.id}:defeat`,
+      vx: corpse.vx,
+      vy: corpse.vy,
+      grounded: e.y >= e.floor,
+      doll: corpse.doll.state,
+      dollFloor: e.floor - e.y,
+      hitDirection: e.hitDirection,
+      alpha:
+        corpse.restAt === undefined
+          ? 1
+          : Math.min(1, Math.max(0, 1 - (clock - corpse.restAt - 0.25) / 0.4)),
+    };
   const action: Action =
     e.hp <= 0
       ? "defeat"
@@ -90,8 +112,8 @@ export function creatureAction(
     intentTarget: e.phase !== "patrol" && e.hp > 0 ? target : undefined,
     lockedDirection:
       e.phase === "windup" || e.phase === "strike" ? e.attackDir : undefined,
-    x: e.x,
-    y: e.y,
+    x: corpse?.x ?? e.x,
+    y: corpse?.y ?? e.y,
     instance: action === "walk" ? undefined : `${e.id}:${action}:${at}`,
     clock,
     facing: e.dir,

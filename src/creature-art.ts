@@ -37,7 +37,8 @@ export class CreatureDirector {
       )
         return;
       const dead = e.hp <= 0,
-        age = time - e.diedAt;
+        corpse = reduced ? undefined : e.corpse,
+        age = time - (corpse ? (corpse.restAt ?? time) : e.diedAt);
       if (dead && age > 0.65) return;
       const bound = e.bound > time,
         hurt = time - e.hurtAt < 0.2;

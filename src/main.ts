@@ -1134,6 +1134,8 @@ class Journey extends Phaser.Scene {
         attackDir: 1,
         attackHit: false,
         gait: 0,
+        edgeMin: (support?.x ?? e.x - 120) + 12,
+        edgeMax: (support ? support.x + support.w : e.x + 120) - 12,
         minX: Math.max(e.x - 90, (support?.x ?? e.x - 120) + 28),
         maxX: Math.min(
           e.x + 90,
@@ -1207,7 +1209,7 @@ class Journey extends Phaser.Scene {
       this.pressed("J");
       this.pressed("K");
       this.pressed("E");
-      this.doll.tick(dt, this.onGround);
+      this.doll.tick(dt, this.onGround, this.vx);
     }
     for (const id of SKILL_IDS) {
       if (
@@ -1523,7 +1525,7 @@ class Journey extends Phaser.Scene {
       );
       if (bounded !== this.x) {
         this.x = bounded;
-        this.vx *= -0.15;
+        this.vx = this.doll.wall(this.vx);
       }
     }
     for (const room of rooms) {

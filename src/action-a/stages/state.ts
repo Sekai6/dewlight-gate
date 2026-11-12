@@ -35,6 +35,8 @@ export interface ActorInput {
   grounded: boolean;
   reduced?: boolean;
   visible?: boolean;
+  /** Whole-body opacity, multiplied into the pose. */
+  alpha?: number;
   /** Grounded attacks keep the locomotion lower body. */
   moving?: boolean;
 }
