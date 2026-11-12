@@ -1,12 +1,17 @@
 import { SkillRuntime } from "@dewlight/action-skill";
 import { skillContains } from "@dewlight/action-skill";
 import {
+  MOVES,
   SKILLS,
   SKILL_IDS,
+  isSkill,
+  nextAttack,
   skillBlockText,
+  type MoveId,
   type SkillId,
+  type SkillPose,
 } from "./content/skills.ts";
-import type { SkillHit } from "@dewlight/action-skill";
+import type { SkillEvent, SkillHit } from "@dewlight/action-skill";
 import type { Difficulty } from "./boss";
 import { SkillArt } from "./skill-art";
 import { IntentSelector, type IntentTarget } from "@dewlight/action-a";
@@ -296,7 +301,7 @@ function render() {
           ? `<ul class="logs">${save.logs.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
           : tab === "背包"
             ? `<div class="cards"><div class="card"><strong>◈ ${save.beads.length} 玻璃珠</strong><p>清晨留下的碎光。收集成果会一直保留。</p></div><div class="card"><strong>✧ ${save.trials.filter((t) => t.startsWith("seal-")).length} / 6 风语玻璃签</strong><p>完成每座花园的乘风与转向邀约，收集不重复的纪念签。</p></div>${save.stones.map((i) => `<div class="card"><strong>${names[i]}印记</strong><p>${stories[i]}</p></div>`).join("")}</div>`
-            : `<p>A / D 或 ← / →：移动（按住 C 慢行）　　空格：跳跃　　S / ↓ + 空格：穿下平台<br>风场：跳起借上升风登高，顺风延长跳跃；按住 S / ↓ 抵风下降；靠近玻璃风花按 E 反转横风 8 秒<br>J：攻击（连续按下交替挥斩）　　Shift：冲刺（冷却 1.1 秒）<br>K：藤蔓束缚（25 光能）　　E：交互<br>Tab：旅程页　　Esc：暂停 / 返回　　H：显示 / 收起引导</p><p>藤蔓可束缚前方敌人 3 秒，或固定标有叶片的移动平台 5 秒。靠近目标后使用。光能会自动恢复；坠落返回安全地面，倒下返回石碑，不丢失玻璃珠。已唤醒石碑可 E 休憩恢复；暂停页可回到检查点，刷新后继续最近的安全落脚处。苔甲与璃翅会先锁定方向、亮起暖金色预警，再扑向前方；可以冲刺穿过或用藤蔓打断。</p>`;
+            : `<p>A / D 或 ← / →：移动（按住 C 慢行）　　空格：跳跃　　S / ↓ + 空格：穿下平台<br>风场：跳起借上升风登高，顺风延长跳跃；按住 S / ↓ 抵风下降；靠近玻璃风花按 E 反转横风 8 秒<br>J：攻击（连按三段，第三段为重斩；空中为空斩；命中后可立刻接下一招）　　Shift：冲刺（冷却 1.1 秒）<br>K：藤蔓束缚（25 光能）　　E：交互<br>Tab：旅程页　　Esc：暂停 / 返回　　H：显示 / 收起引导</p><p>藤蔓可束缚前方敌人 3 秒，或固定标有叶片的移动平台 5 秒。靠近目标后使用。光能会自动恢复；坠落返回安全地面，倒下返回石碑，不丢失玻璃珠。已唤醒石碑可 E 休憩恢复；暂停页可回到检查点，刷新后继续最近的安全落脚处。苔甲与璃翅会先锁定方向、亮起暖金色预警，再扑向前方；可以冲刺穿过或用藤蔓打断。</p>`;
     panel = `<div class="eyebrow">TAKE A BREATH</div><h2>暂停 · 旅程手记</h2><div class="tabs">${["旅程", "日志", "背包", "操作"].map((t) => `<button class="btn ${tab === t ? "active" : ""}" data-tab="${t}">${t}</button>`).join("")}</div><div class="page-content">${content}</div><div class="actions"><button class="btn primary" data-action="${scene.started ? "resume" : "title"}">${scene.started ? "继续探索 →" : "返回标题"}</button>${scene.started ? '<button class="btn" data-action="checkpoint" title="保留所有收集和任务进度">回到检查点</button>' : ""}<button class="btn" data-action="restart">重新开始</button><button class="btn" data-action="title">回到标题</button></div>`;
   }
   if (mode === "end")
@@ -323,7 +328,7 @@ function render() {
       }).join("")}</aside>`
     : "";
   if (panel && mode !== "end")
-    panel += `<section class="skill-guide"><h3>剑舞连携 · Q → R → F</h3><p>Q 折光穿枝：20 光，突进斩。R 藤芽升锋：25 光，上挑升空，每次离地一次。F 露华回旋：35 光，仅空中三段剑舞。发力后可连携，收势可 Shift 取消。</p><p>敌人不会因技能被自动锁定；每次施放保留当前朝向。庭院的训练光影可以反复练习，不提供资源奖励。</p><button class="btn" data-action="training">${scene?.training ? "跳过" : "重开"}训练光影</button></section>`;
+    panel += `<section class="skill-guide"><h3>剑舞连携 · Q → R → F</h3><p>Q ${SKILLS.branch.name}：${SKILLS.branch.cost} 光，突进斩。R ${SKILLS.rise.name}：${SKILLS.rise.cost} 光，上挑升空，每次离地一次。F ${SKILLS.bloom.name}：${SKILLS.bloom.cost} 光，仅空中三段剑舞。按键会被记住并在可用时放出；命中后可立刻接下一招、冲刺或跳跃，命中还会回复少量光能。</p><p>敌人不会因技能被自动锁定；每次施放保留当前朝向。庭院的训练光影可以反复练习，不提供资源奖励。</p><button class="btn" data-action="training">${scene?.training ? "跳过" : "重开"}训练光影</button></section>`;
   const difficultyLocked = !!scene?.arena;
   const difficultySettings = `<label>守卫难度 <select id="difficulty" aria-label="守卫难度" ${difficultyLocked ? "disabled" : ""}><option value="normal" ${(scene?.started ? save.difficulty : selectedDifficulty) !== "challenge" ? "selected" : ""}>普通 · 48 生命</option><option value="challenge" ${(scene?.started ? save.difficulty : selectedDifficulty) === "challenge" ? "selected" : ""}>挑战 · 64 生命</option></select></label>${difficultyLocked ? "<small>战斗中不可切换。先回到检查点，再选择难度。</small>" : ""}`;
   const markup = `${skillbar}${guidance}<header class="topbar"><div class="brand">晨露之门<small>DEWLIGHT / GATE</small></div><div class="hud"><span class="hearts" aria-label="生命 ${hp} / 5">${Array.from({ length: 5 }, (_, i) => `<svg class="heart ${i < hp ? "full" : "empty"}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21C8 17 2 13 2 7.5C2 2 9 1 12 6C15 1 22 2 22 7.5C22 13 16 17 12 21Z"/></svg>`).join("")}</span><span>光能 <strong>${Math.floor(energy)}</strong><span class="energy"><i style="width:${energy}%"></i></span></span><span>◈ <strong>${save.beads.length.toString().padStart(2, "0")}</strong></span><span>石碑 <strong>${count}/3</strong></span><button class="iconbtn" data-action="pause" aria-label="暂停旅程">Ⅱ</button></div></header><div class="location"><span>THE DEWBOUND JOURNEY</span><b>${["晨露庭院", "玻璃阶地", "藤冠高台"][scene?.region ?? 0]}</b><p>${count === 3 ? "晨光已经归来，继续寻找遗漏的微光。" : `${rooms[Math.min(rooms.length - 1, Math.floor((scene?.x ?? 0) / ROOM_WIDTH))].name} · ${scene?.lensObjective ?? "寻找高处的棱镜"}`}</p></div><footer class="bottom"><div class="keys"><span><kbd>A D</kbd>移动 / C 慢行</span><span><kbd>SPACE</kbd>跳跃 / S+空格 下落</span><span><kbd>J</kbd>攻击</span><span><kbd class="dash-key" style="--ready:${dashReady * 100}%" title="${dashReady >= 1 ? "冲刺已就绪" : "冲刺恢复中"}">SHIFT</kbd>冲刺</span><span><kbd>K</kbd>束缚</span><span><kbd>E</kbd>交互</span><span><kbd>TAB</kbd>旅程</span><span><kbd>H</kbd>引导</span></div><div class="chapter">${scene?.doll.state.active ? (scene.doll.state.recoverReady ? "\u7a7a\u683c / Shift \u00b7 \u53d7\u8eab" : "\u5931\u8861\u4e2d \u00b7 \u7a0d\u540e\u53ef\u53d7\u8eab") : "\u2727 \u8ba9\u5fae\u5c0f\u7684\u5149\uff0c\u5e26\u4f60\u5411\u524d"}</div></footer>${scene?.started && mode === "play" && (hp <= 2 || energy < 25) ? `<div class="resource-status" role="status">${hp <= 2 ? "生命偏低 · 石碑可休憩，Tab 可回检查点" : "光能恢复中 · 束缚需要 25 光能"}</div>` : ""}${scene?.started && mode === "play" && scene.clock - scene.pickupAt < 1.2 ? `<div class="pickup-note" aria-label="收集反馈">✧ +${scene.pickupCount} 玻璃珠</div>` : ""}${performance.now() < toastUntil ? `<div class="toast" role="status">${escapeHtml(toastText)}</div>` : ""}${panel ? `<div class="overlay"><section class="panel">${panel}<div class="settings">${difficultySettings}<label><input id="mute" type="checkbox" ${muted ? "checked" : ""}>静音</label><label>音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label><input id="motion" type="checkbox" ${reduced ? "checked" : ""}>减少动态效果</label><label><input id="guidance" type="checkbox" ${scene?.guideEnabled ? "checked" : ""}>寻路引导</label><label><input id="shake" type="checkbox" ${preferences.shake ? "checked" : ""}>镜头震动</label><label><input id="contrast" type="checkbox" ${preferences.contrast ? "checked" : ""}>清晰界面</label><label>画质 <select id="quality" aria-label="画质" ${graphicsBusy ? "disabled" : ""}><option value="soft" ${quality === "soft" ? "selected" : ""}>轻盈 · 兼容</option><option value="dream" ${quality === "dream" ? "selected" : ""}>绮梦 · 推荐</option><option value="webgpu" ${quality === "webgpu" ? "selected" : ""}>绮梦 · WebGPU</option></select></label><small class="graphics-status" role="status">${graphicsBusy ? "正在准备 WebGPU 光影…" : quality === "webgpu" ? "WebGPU 光影已启用 · 多重光晕与细微折射" : quality === "soft" ? "减少飘花、悬露与雾层，保留场景完整美术" : "完整花园层次与光效 · WebGPU 档需浏览器支持"}</small></div>${storageOK ? "" : '<div class="notice">浏览器无法保存进度，本次旅程仍可正常游玩。</div>'}</section></div>` : ""}`;
@@ -478,25 +483,46 @@ window.addEventListener("beforeunload", () => {
 });
 
 class Journey extends Phaser.Scene {
-  readonly skills = new SkillRuntime(SKILLS);
+  readonly skills = new SkillRuntime(MOVES);
+  /** The move started most recently, for the sword combo. */
+  private lastMove: MoveId | undefined;
+  private lastMoveAt = -999;
+  /** When a hit last landed; the camera and the light lean into it. */
+  strikeAt = -999;
+  private bindInputAt = -999;
   skillArt!: SkillArt;
   skillSpentAt = -999;
   training = true;
   trainingHits = new Set<SkillId>();
-  get skillPose() {
+  /** The move being performed: a sword attack or a skill. */
+  get movePose() {
     return this.skills.pose;
   }
+  /** Set only while a sword-dance skill plays. */
+  get skillPose(): SkillPose | undefined {
+    const pose = this.skills.pose;
+    return pose && isSkill(pose.id) ? (pose as SkillPose) : undefined;
+  }
   skillInput() {
+    // A move faces the held direction, so a chained combo can turn around.
+    const held = this.keys
+      ? Number(this.down("D") || this.down("RIGHT")) -
+        Number(this.down("A") || this.down("LEFT"))
+      : 0;
     return {
       energy: this.energy,
       grounded: this.onGround,
-      facing: this.facing,
+      facing: held || this.facing,
       blocked: this.doll.state.active,
     };
   }
-  finishGuardian() {
+  finishGuardian(bySword = false) {
     if (this.guardian.hp > 0 || !collect(save, "boss-dew-crown")) return;
-    save.logs.push("露冠守卫：冠冕认出了你的灯，晨光之门再次开放。");
+    save.logs.push(
+      bySword
+        ? "露冠守卫：荆壳碎裂，守卫认出了你的灯。它俯下身，将晨露碑后的道路交还给你。"
+        : "露冠守卫：冠冕认出了你的灯，晨光之门再次开放。",
+    );
     this.hp = 5;
     this.energy = 100;
     this.effects.burst(
@@ -506,41 +532,96 @@ class Journey extends Phaser.Scene {
       "awaken",
       reduced,
     );
-    toast("露冠守卫已苏醒 · 三种剑舞也照亮了庭院。去唤醒晨露碑吧。");
+    toast(
+      bySword
+        ? "荆壳散去，露冠守卫向你低下冠冕。生命与光能已恢复，去唤醒晨露碑吧。"
+        : "露冠守卫已苏醒 · 三种剑舞也照亮了庭院。去唤醒晨露碑吧。",
+    );
     persist();
   }
-  resolveSkillHit(hit: SkillHit<SkillId>) {
-    const now = this.clock;
+  resolveSkillHit(hit: SkillHit<MoveId>) {
+    const now = this.clock,
+      move = MOVES[hit.skill],
+      feel = move.feel,
+      attack = move.kind === "attack";
+    let landed = 0,
+      heavy = false;
     const inRange = (x: number, y: number, boss = false) =>
-      skillContains(hit, this, { id: "query", x, y, padding: boss ? 25 : 0 });
+      skillContains(hit, this, {
+        id: "query",
+        x,
+        y,
+        padding: boss ? (attack ? 30 : 25) : 0,
+      });
+    const spark = (x: number, y: number) => {
+      this.effects.burst(x, y, now, "hit", reduced, hit.facing);
+      this.skillArt.impact(x, y, now, hit.facing, feel.spark);
+    };
     const b = this.guardian;
     if (
       inRange(b.x, b.y, true) &&
-      !["sleep", "intro", "defeated"].includes(b.phase) &&
+      (attack || !["sleep", "intro", "defeated"].includes(b.phase)) &&
       this.skills.claim(hit, "guardian") &&
-      hitGuardian(b, now, true)
+      hitGuardian(b, now, !attack)
     ) {
-      this.effects.burst(b.x, b.y - 45, now, "hit", reduced, hit.facing);
-      this.finishGuardian();
+      spark(b.x, b.y - 45);
+      b.flinchAt = now;
+      b.flinchDir = hit.facing;
+      landed++;
+      heavy = b.lastDamage === 2;
+      // Sword hits on the guardian have always returned a little light.
+      if (attack) this.energy = Math.min(100, this.energy + 5);
+      this.finishGuardian(attack);
     }
     for (const e of this.enemies) {
       if (e.hp <= 0 || !inRange(e.x, e.y) || !this.skills.claim(hit, e.id))
         continue;
-      hurtCreature(e, now, hit.facing);
-      if (hit.skill === "rise") liftCreature(e);
-      this.effects.burst(e.x, e.y - 20, now, "hit", reduced, hit.facing);
-      if (e.hp <= 0 && collect(save, e.id)) {
+      const fling =
+        !feel.pull || e.hp <= 1 || hit.section === move.hits.length - 1;
+      const away = Math.sign(e.x - this.x) || hit.facing;
+      hurtCreature(
+        e,
+        now,
+        feel.pull ? (fling ? away : -away) : hit.facing,
+        feel.pull && fling ? feel.push * 2.5 : feel.push,
+      );
+      if (feel.lift) liftCreature(e);
+      spark(e.x, e.y - 20);
+      landed++;
+      if (e.hp <= 0) {
         this.effects.burst(e.x, e.y - 20, now, "defeat", reduced);
-        persist();
+        sound(800);
+        if (collect(save, e.id)) persist();
       }
     }
-    if (this.training && this.x < 1100 && inRange(650, GROUND_Y)) {
+    if (
+      isSkill(hit.skill) &&
+      this.training &&
+      this.x < 1100 &&
+      inRange(650, GROUND_Y) &&
+      this.skills.claim(hit, "dummy")
+    ) {
+      spark(650, GROUND_Y - 40);
+      landed++;
       this.trainingHits.add(hit.skill);
-      if (this.trainingHits.size === 3) {
+      if (this.trainingHits.size === 3 && !save.skillTutorial) {
         save.skillTutorial = true;
         persist();
         toast("剑舞练习完成！光影不提供奖励，可随时重复练习。");
       }
+    }
+    if (!landed) return;
+    // Everything a hit feels like hangs off real contact, never the timeline.
+    this.skills.confirm(hit.instance);
+    this.strikeAt = now;
+    sound(heavy ? 260 : feel.sound + hit.section * 90);
+    this.energy = Math.min(100, this.energy + feel.energy * landed);
+    if (!reduced) {
+      this.hitPause = Math.min(
+        0.09,
+        Math.max(this.hitPause, feel.hitstop * (heavy ? 1.3 : 1)),
+      );
+      if (preferences.shake) this.cameras.main.shake(70, feel.shake);
     }
   }
 
@@ -627,8 +708,7 @@ class Journey extends Phaser.Scene {
   dropIndex = -1;
   dashAt = -999;
   attackAt = -999;
-  private attackResolved = true;
-  private attackInputAt = -999;
+
   bindAt = -999;
   bindTarget = { x: 0, y: 0 };
   landingSpeed = 0;
@@ -1041,7 +1121,7 @@ class Journey extends Phaser.Scene {
       (manager as unknown as { queue: KeyboardEvent[] }).queue.length = 0;
     this.input.keyboard?.resetKeys();
     this.jumpAt = -999;
-    this.attackInputAt = -999;
+    this.bindInputAt = -999;
     this.dashInputAt = -999;
     this.dropUntil = -999;
     this.dropIndex = -1;
@@ -1078,8 +1158,7 @@ class Journey extends Phaser.Scene {
     this.turnAt = -999;
     this.brakeAt = -999;
     this.previousMove = 0;
-    this.attackResolved = true;
-    this.attackInputAt = -999;
+
     this.hp = 5;
     this.energy = 100;
     this.vx = 0;
@@ -1218,38 +1297,58 @@ class Journey extends Phaser.Scene {
       this.pressed("E");
       this.doll.tick(dt, this.onGround, this.vx);
     }
-    for (const id of SKILL_IDS) {
+    const dashing = now - this.dashAt < 0.19;
+    // Every press is handed to the runtime, which holds it until it can start:
+    // through a swing, a dash or the tail of a stagger.
+    for (const id of SKILL_IDS)
       if (
         this.pressed(SKILLS[id].key) &&
         !locked &&
-        now - this.dashAt >= 0.19
-      ) {
-        if (!this.skills.request(id, this.skillInput()))
-          toast(
-            `${SKILLS[id].name} · ${skillBlockText(this.skills.reason(id, this.skillInput()), this.skills.cooldowns[id])}`,
-          );
-      }
-    }
+        !this.skills.request(id, this.skillInput())
+      )
+        toast(
+          `${SKILLS[id].name} · ${skillBlockText(this.skills.reason(id, this.skillInput()), this.skills.cooldowns[id])}`,
+        );
+    if (
+      !locked &&
+      (this.pressed("J") ||
+        (this.arena && this.down("J") && !this.skills.pending))
+    )
+      this.skills.request(
+        nextAttack(this.onGround, this.lastMove, now - this.lastMoveAt),
+        this.skillInput(),
+      );
     const skillStep = this.skills.tick(dt, {
       ...this.skillInput(),
-      blocked: locked || now - this.dashAt < 0.19,
+      hold: dashing,
     });
     if (skillStep.cost) {
       this.energy -= skillStep.cost;
       this.skillSpentAt = now;
-      this.attackAt = -999;
-      this.attackResolved = true;
-      this.attackInputAt = -999;
     }
     for (const event of skillStep.events) {
-      this.skillArt.event(event, this.x, this.y, now, this.facing);
-      if (event.type === "prepare")
-        sound(
-          event.skill === "branch" ? 310 : event.skill === "rise" ? 420 : 610,
-        );
+      const move = MOVES[event.skill];
+      if (event.type === "prepare") {
+        this.lastMove = event.skill;
+        this.lastMoveAt = now;
+        if (move.kind === "attack") {
+          this.attackAt = now;
+          this.attackStyle = event.skill === "slash2" ? 1 : 0;
+          sound(event.skill === "slash3" ? 150 : 180);
+        } else
+          sound(
+            event.skill === "branch" ? 310 : event.skill === "rise" ? 420 : 610,
+          );
+      }
+      if (!isSkill(event.skill)) continue;
+      this.skillArt.event(
+        event as SkillEvent<SkillId>,
+        this.x,
+        this.y,
+        now,
+        this.facing,
+      );
       if (event.type === "release") sound(720);
-      if (event.type === "hit")
-        sound(event.skill === "bloom" ? 850 + (event.section ?? 0) * 90 : 580);
       if (event.type === "recovery") sound(370);
     }
     if (this.skills.active) this.facing = this.skills.active.facing;
@@ -1267,7 +1366,14 @@ class Journey extends Phaser.Scene {
       const p = platforms[this.groundIndex];
       this.y += p.y - (p.prevY ?? p.y);
     }
-    if (!locked && this.pressed("SPACE")) {
+    const moving = this.skills.active
+      ? MOVES[this.skills.active.skill]
+      : undefined;
+    // A sword swing never stops a jump; a skill does until its hit lands.
+    const canJump =
+      !moving || moving.kind === "attack" || this.skills.allows("jump");
+    if (!locked && this.pressed("SPACE") && canJump) {
+      if (moving?.kind === "skill") this.skills.cancel();
       if (
         (this.down("S") || this.down("DOWN")) &&
         this.onGround &&
@@ -1303,7 +1409,7 @@ class Journey extends Phaser.Scene {
       this.facing = move;
     if (!locked && this.pressed("SHIFT")) this.dashInputAt = now;
     if (
-      now - this.dashInputAt < 0.12 &&
+      now - this.dashInputAt < 0.2 &&
       now - this.dashAt > 1.1 &&
       this.skills.allows("dash")
     ) {
@@ -1313,7 +1419,7 @@ class Journey extends Phaser.Scene {
       this.effects.burst(this.x, this.y - 25, now, "dash", reduced);
       sound(240);
     }
-    const dash = !locked && now - this.dashAt < 0.19;
+    const dash = !locked && dashing;
     const wind = sampleWind(this.x, this.y, now, this.windTurns);
     if (wind.zone?.lift && wind.zone.lift > 1000) {
       if (this.windRide?.id !== wind.zone.id)
@@ -1353,83 +1459,15 @@ class Journey extends Phaser.Scene {
       this.jumpAt = -999;
       sound(400);
     }
-    if (!locked && (this.pressed("J") || (this.arena && this.down("J"))))
-      this.attackInputAt = now;
+    if (!locked && this.pressed("K")) this.bindInputAt = now;
     if (
-      now - this.attackInputAt < 0.14 &&
-      now - this.attackAt > 0.38 &&
-      this.skills.allows("attack")
-    ) {
-      this.attackInputAt = -999;
-      this.skills.cancel();
-      this.attackStyle = now - this.attackAt < 0.85 ? 1 - this.attackStyle : 0;
-      this.attackAt = now;
-      this.attackResolved = false;
-      sound(180);
-    }
-    if (!locked && !this.attackResolved && now - this.attackAt >= 0.085) {
-      this.attackResolved = true;
-      const boss = this.guardian;
-      if (
-        Math.abs(this.x - boss.x) < 132 &&
-        Math.abs(this.y - boss.y) < 105 &&
-        (boss.x - this.x) * this.facing > -45 &&
-        hitGuardian(boss, now)
-      ) {
-        this.effects.burst(
-          boss.x,
-          boss.y - 45,
-          now,
-          "hit",
-          reduced,
-          this.facing,
-        );
-        this.hitPause = reduced ? 0 : boss.lastDamage === 2 ? 0.06 : 0.025;
-        sound(boss.lastDamage === 2 ? 260 : 180);
-        this.energy = Math.min(100, this.energy + 5);
-        if (boss.hp === 0) {
-          collect(save, "boss-dew-crown");
-          save.logs.push(
-            "露冠守卫：荆壳碎裂，守卫认出了你的灯。它俯下身，将晨露碑后的道路交还给你。",
-          );
-          this.hp = 5;
-          this.energy = 100;
-          this.effects.burst(boss.x, boss.y - 40, now, "awaken", reduced);
-          toast(
-            "荆壳散去，露冠守卫向你低下冠冕。生命与光能已恢复，去唤醒晨露碑吧。",
-          );
-          persist();
-        }
-      }
-      this.enemies.forEach((e) => {
-        if (
-          e.hp > 0 &&
-          Math.abs(e.x - this.x) < 102 &&
-          Math.abs(e.y - this.y) < 85 &&
-          (e.x - this.x) * this.facing > -15
-        ) {
-          hurtCreature(e, now, this.facing);
-          if (!reduced) {
-            this.hitPause = 0.045;
-            if (preferences.shake) this.cameras.main.shake(65, 0.0015);
-          }
-          this.effects.burst(e.x, e.y - 20, now, "hit", reduced, this.facing);
-          sound(115);
-          if (e.hp <= 0) {
-            this.effects.burst(e.x, e.y - 20, now, "defeat", reduced);
-            collect(save, e.id);
-            sound(800);
-            persist();
-          }
-        }
-      });
-    }
-    if (
-      !locked &&
-      this.pressed("K") &&
+      now - this.bindInputAt < 0.2 &&
       now - this.bindAt > 0.45 &&
       this.skills.allows("bind")
     ) {
+      this.bindInputAt = -999;
+      this.skills.cancel();
+
       const boss = this.guardian;
       if (
         this.energy >= 25 &&
@@ -1732,7 +1770,7 @@ class Journey extends Phaser.Scene {
         .setPosition(12000, 970)
         .setText("E · 回访晨露庭院（可选探索）");
     }
-    if (!locked && this.skills.allows("bind") && this.pressed("E")) {
+    if (!locked && !this.skillPose && this.pressed("E")) {
       if (
         save.stones.includes(0) &&
         Math.abs(this.x - 12080) < 85 &&
@@ -1887,7 +1925,7 @@ class Journey extends Phaser.Scene {
     )
       return;
     this.skills.cancel();
-    this.attackResolved = true;
+
     this.attackAt = -999;
     this.hp--;
     this.hitDirection = hit?.direction ?? direction;
@@ -1946,7 +1984,7 @@ class Journey extends Phaser.Scene {
       this.vy = -this.doll.profile.upward;
       this.onGround = false;
       this.groundIndex = -1;
-      this.attackResolved = true;
+
       this.attackAt = -999;
       const accumulator = this.accumulator;
       this.clearInput();
@@ -2006,7 +2044,7 @@ class Journey extends Phaser.Scene {
     this.skillArt.draw(
       this.clock,
       this,
-      this.skills.pose,
+      this.skillPose,
       reduced,
       this.started && mode !== "title",
       this.training && this.x < 1100,

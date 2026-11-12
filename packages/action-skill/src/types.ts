@@ -15,8 +15,13 @@ export interface SkillDefinition {
   oncePerAir?: boolean;
   /** Hits reach behind the caster as far as in front. */
   bothSides?: boolean;
-  /** Other actions (by name) that may interrupt the recovery phase. */
+  /** Other actions (by name) that may interrupt the recovery phase. Any
+   *  skill may always follow from recovery. */
   cancelInto?: readonly string[];
+  /** Once a hit of this skill has landed (see `SkillRuntime.confirm`), the
+   *  listed actions and skill ids may interrupt it from `after` seconds on.
+   *  "*" stands for every skill. A miss opens nothing. */
+  hitCancel?: { after: number; into: readonly string[] };
   /** Hit bands around the caster. `end > at` keeps the band open. */
   hits: readonly { at: number; end: number; reach: number; height: number }[];
   /** Forced travel along the facing, replacing normal movement. */
@@ -32,12 +37,18 @@ export interface SkillInstance<Id extends string = string> {
   age: number;
   facing: number;
   phase: SkillPhase;
+  /** One of its hits has landed on something. */
+  confirmed: boolean;
 }
 export interface SkillInput {
   energy: number;
   grounded: boolean;
   facing: number;
+  /** Stunned: the active skill and the buffered input are dropped. */
   blocked?: boolean;
+  /** Busy with something else (a dash): nothing starts, the buffered input
+   *  waits. */
+  hold?: boolean;
 }
 /** Why a skill cannot start right now. */
 export type SkillBlock =

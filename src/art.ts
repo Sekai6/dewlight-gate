@@ -647,6 +647,8 @@ function paintGate(c: C) {
 
 export interface HeroPose {
   skillPose?: import("./content/skills.ts").SkillPose;
+  movePose?: import("./content/skills.ts").MovePose;
+  strikeAt?: number;
   intentTarget?: import("@dewlight/action-a").IntentTarget;
   dollPose?: Readonly<DollHitState> | null;
   dollFloor?: number;
@@ -877,6 +879,7 @@ export class ArtDirector {
           ...pose,
           intentTarget: pose.intentTarget,
           skillPose: pose.skillPose,
+          movePose: pose.movePose,
           dollPose: pose.dollPose,
           dollFloor: pose.dollFloor,
           landAt: this.landedAt,

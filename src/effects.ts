@@ -25,9 +25,51 @@ interface Ring {
   radius: number;
   color: number;
 }
+const PALETTE = {
+  jump: 0xa6e7d5,
+  land: 0x91c4a8,
+  hit: 0xffd59c,
+  collect: 0xd2fff0,
+  bind: 0xb8e99e,
+  awaken: 0xffdf9b,
+  hurt: 0xffb394,
+  dash: 0xb7f9f0,
+  defeat: 0xc4dba4,
+};
 export class Effects {
   private particles: Particle[] = [];
   private rings: Ring[] = [];
+  /** Spent particles, reused by the next burst. */
+  private pool: Particle[] = [];
+  private emit(
+    variant: number,
+    spin: number,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    born: number,
+    life: number,
+    size: number,
+    color: number,
+    gravity: number,
+    kind: Particle["kind"],
+  ) {
+    const p = this.pool.pop() ?? ({} as Particle);
+    p.variant = variant;
+    p.spin = spin;
+    p.x = x;
+    p.y = y;
+    p.vx = vx;
+    p.vy = vy;
+    p.born = born;
+    p.life = life;
+    p.size = size;
+    p.color = color;
+    p.gravity = gravity;
+    p.kind = kind;
+    this.particles.push(p);
+  }
   private glow: Phaser.GameObjects.Graphics;
   private ink: Phaser.GameObjects.Graphics;
   private flecks: Phaser.GameObjects.Image[] = [];
@@ -94,17 +136,6 @@ export class Effects {
     direction = 0,
   ) {
     if (kind === "awaken") this.ceremony = { x, y, born: time };
-    const palette = {
-      jump: 0xa6e7d5,
-      land: 0x91c4a8,
-      hit: 0xffd59c,
-      collect: 0xd2fff0,
-      bind: 0xb8e99e,
-      awaken: 0xffdf9b,
-      hurt: 0xffb394,
-      dash: 0xb7f9f0,
-      defeat: 0xc4dba4,
-    };
     const count = reduced
       ? 3
       : kind === "awaken"
@@ -130,34 +161,28 @@ export class Effects {
             ? (direction < 0 ? Math.PI : 0) + (Math.random() - 0.5) * 1.9
             : Math.random() * Math.PI * 2,
         v = (0.3 + Math.random() * 0.7) * speed;
-      this.particles.push({
-        variant: i % 3,
-        spin: (Math.random() - 0.5) * (kind === "hit" ? 10 : 4),
+      this.emit(
+        i % 3,
+        (Math.random() - 0.5) * (kind === "hit" ? 10 : 4),
         x,
         y,
-        vx: Math.cos(a) * v + (kind === "hit" ? direction * 90 : 0),
-        vy:
-          kind === "land" || kind === "jump"
-            ? -Math.abs(Math.sin(a) * v) - 12
-            : Math.sin(a) * v - (kind === "awaken" ? 70 : 15),
-        born: time,
-        life:
-          kind === "awaken"
-            ? 1.6 + Math.random() * 1.4
-            : 0.35 + Math.random() * 0.55,
-        size:
-          kind === "awaken"
-            ? 0.7 + Math.random() * 1.5
-            : 0.6 + Math.random() * 2,
-        color: palette[kind],
-        gravity: kind === "land" ? 40 : kind === "awaken" ? -15 : 40,
-        kind:
-          kind === "bind" || kind === "defeat"
-            ? "leaf"
-            : kind === "land"
-              ? "dust"
-              : "spark",
-      });
+        Math.cos(a) * v + (kind === "hit" ? direction * 90 : 0),
+        kind === "land" || kind === "jump"
+          ? -Math.abs(Math.sin(a) * v) - 12
+          : Math.sin(a) * v - (kind === "awaken" ? 70 : 15),
+        time,
+        kind === "awaken"
+          ? 1.6 + Math.random() * 1.4
+          : 0.35 + Math.random() * 0.55,
+        kind === "awaken" ? 0.7 + Math.random() * 1.5 : 0.6 + Math.random() * 2,
+        PALETTE[kind],
+        kind === "land" ? 40 : kind === "awaken" ? -15 : 40,
+        kind === "bind" || kind === "defeat"
+          ? "leaf"
+          : kind === "land"
+            ? "dust"
+            : "spark",
+      );
     }
     if (["awaken", "hit", "bind", "collect", "land"].includes(kind))
       this.rings.push({
@@ -175,7 +200,7 @@ export class Effects {
               : kind === "hit"
                 ? 65
                 : 35,
-        color: palette[kind],
+        color: PALETTE[kind],
       });
     if (this.particles.length > 500)
       this.particles.splice(0, this.particles.length - 500);
@@ -212,20 +237,20 @@ export class Effects {
       this.lastStep = time;
       this.stepX = player.x;
       for (let n = 0; n < 3; n++)
-        this.particles.push({
-          x: player.x - player.facing * 7,
-          y: player.y - 2,
-          vx: -player.vx * 0.12 + (Math.random() - 0.5) * 20,
-          vy: -15 - Math.random() * 22,
-          born: time,
-          life: 0.35 + n * 0.07,
-          size: 0.65 + n * 0.15,
-          color: player.region === 1 ? 0xc1e5ff : 0xc7e5ab,
-          gravity: 55,
-          kind: player.region === 1 ? "spark" : "leaf",
-          variant: n,
-          spin: n - 1,
-        });
+        this.emit(
+          n,
+          n - 1,
+          player.x - player.facing * 7,
+          player.y - 2,
+          -player.vx * 0.12 + (Math.random() - 0.5) * 20,
+          -15 - Math.random() * 22,
+          time,
+          0.35 + n * 0.07,
+          0.65 + n * 0.15,
+          player.region === 1 ? 0xc1e5ff : 0xc7e5ab,
+          55,
+          player.region === 1 ? "spark" : "leaf",
+        );
     }
     if (!player.onGround || Math.abs(player.vx) < 40 || travelled > 300)
       this.stepX = player.x;
@@ -248,8 +273,13 @@ export class Effects {
       .setFlipX(player.facing < 0)
       .setDisplaySize(170, 60)
       .setAlpha(0.65);
-    this.particles = this.particles.filter((p) => time - p.born < p.life);
-    for (const [index, p] of this.particles.entries()) {
+    let kept = 0;
+    for (const p of this.particles)
+      if (time - p.born < p.life) this.particles[kept++] = p;
+      else this.pool.push(p);
+    this.particles.length = kept;
+    for (let index = 0; index < kept; index++) {
+      const p = this.particles[index];
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.vy += p.gravity * dt;
@@ -297,7 +327,10 @@ export class Effects {
         }
       }
     }
-    this.rings = this.rings.filter((r) => time - r.born < r.life);
+    let rings = 0;
+    for (const r of this.rings)
+      if (time - r.born < r.life) this.rings[rings++] = r;
+    this.rings.length = rings;
     for (const r of this.rings) {
       const t = (time - r.born) / r.life,
         e = 1 - Math.pow(1 - t, 3);

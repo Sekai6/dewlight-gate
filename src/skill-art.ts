@@ -1,8 +1,9 @@
 import Phaser from "phaser";
 import type { SkillEvent } from "@dewlight/action-skill";
-import type { SkillId, SkillPose } from "./content/skills.ts";
+import { SKILLS, type SkillId, type SkillPose } from "./content/skills.ts";
 import { createPresentation, samplePresentation } from "./skill-presentation";
-/** One Graphics object, fixed event ring; never creates per-cast display objects. */
+/** One Graphics object with fixed pools of release rings and impact marks;
+ *  nothing is created per cast. */
 export class SkillArt {
   private g: Phaser.GameObjects.Graphics;
   private cursor = 0;
@@ -14,17 +15,40 @@ export class SkillArt {
     color: 0,
     facing: 1,
     seed: 0,
-    skill: "branch" as SkillEvent["skill"],
+    skill: "branch" as SkillId,
   }));
+  /** Sparks where a blade actually met something. */
+  private marks = Array.from({ length: 12 }, () => ({
+    x: 0,
+    y: 0,
+    at: -999,
+    facing: 1,
+    power: 0,
+    angle: 0,
+  }));
+  private markCursor = 0;
   constructor(scene: Phaser.Scene) {
     this.g = scene.add.graphics().setDepth(6.2);
   }
   reset() {
     for (const r of this.rings) r.at = -999;
+    for (const m of this.marks) m.at = -999;
     this.g.clear();
   }
-  event(e: SkillEvent, x: number, y: number, now: number, facing = 1) {
-    if (e.type !== "release" && e.type !== "hit") return;
+  /** A blade connected at (x, y). `power` 0..1 scales the mark. */
+  impact(x: number, y: number, now: number, facing: number, power: number) {
+    const m = this.marks[this.markCursor++ % this.marks.length];
+    m.x = x;
+    m.y = y;
+    m.at = now;
+    m.facing = facing;
+    m.power = power;
+    // Alternate the cut direction so consecutive hits read apart.
+    m.angle =
+      (this.markCursor % 2 ? -0.55 : 0.4) + (this.markCursor % 3) * 0.12;
+  }
+  event(e: SkillEvent<SkillId>, x: number, y: number, now: number, facing = 1) {
+    if (e.type !== "release") return;
     const r = this.rings[this.cursor++ % this.rings.length];
     r.x = x;
     r.y = y - 25;
@@ -32,8 +56,7 @@ export class SkillArt {
     r.facing = facing;
     r.skill = e.skill;
     r.seed = e.instance * 0.71 + (e.section ?? 0) * 1.13;
-    r.color =
-      e.skill === "rise" ? 0xd5ecb5 : e.skill === "bloom" ? 0xffe7b8 : 0xb2eee0;
+    r.color = SKILLS[e.skill].color;
   }
   draw(
     now: number,
@@ -63,7 +86,7 @@ export class SkillArt {
       if (age < 0 || age > 0.45) continue;
       const t = age / 0.45;
       const fade = (1 - t) ** 2;
-      const radius = r.skill === "bloom" ? 42 : r.skill === "rise" ? 34 : 48;
+      const radius = SKILLS[r.skill].ring;
       g.lineStyle(reduced ? 1 : 1.5, r.color, fade * 0.42);
       g.strokeEllipse(r.x, r.y, 18 + t * radius, 6 + t * radius * 0.28);
       if (!reduced)
@@ -83,7 +106,47 @@ export class SkillArt {
           g.fillTriangle(x, y - 3, x + 2.5, y, x, y + 4);
         }
     }
+    for (const m of this.marks) {
+      const age = now - m.at;
+      if (age < 0 || age > 0.22) continue;
+      const t = age / 0.22,
+        fade = (1 - t) ** 2;
+      const reach = (22 + m.power * 30) * (0.55 + 0.45 * t);
+      const cx = Math.cos(m.angle) * m.facing,
+        cy = Math.sin(m.angle);
+      // The cut itself: a bright core inside a softer, wider stroke.
+      g.lineStyle(5 + m.power * 5, 0xb9efe0, fade * 0.3);
+      g.lineBetween(
+        m.x - cx * reach,
+        m.y - cy * reach,
+        m.x + cx * reach,
+        m.y + cy * reach,
+      );
+      g.lineStyle(1.5 + m.power * 1.5, 0xfffbe6, fade);
+      g.lineBetween(
+        m.x - cx * reach,
+        m.y - cy * reach,
+        m.x + cx * reach,
+        m.y + cy * reach,
+      );
+      if (reduced) continue;
+      g.lineStyle(1.5, 0xfff1c4, fade * 0.6);
+      g.strokeCircle(m.x, m.y, 6 + t * (18 + m.power * 26));
+      for (let i = 0; i < 5; i++) {
+        const a = m.angle + (i - 2) * 0.42,
+          near = 10 + t * (26 + m.power * 34),
+          far = near + 9 * (1 - t);
+        g.lineStyle(1, 0xfff6d8, fade * 0.8);
+        g.lineBetween(
+          m.x + Math.cos(a) * near * m.facing,
+          m.y + Math.sin(a) * near,
+          m.x + Math.cos(a) * far * m.facing,
+          m.y + Math.sin(a) * far,
+        );
+      }
+    }
     if (!pose) return;
+    const skill = SKILLS[pose.id];
     const { x, y } = hero,
       facing = hero.facing;
     const state = samplePresentation(pose, this.presentation);
@@ -103,7 +166,60 @@ export class SkillArt {
           );
         }
     }
+    if (state.anticipation > 0.01 && !reduced) {
+      // Light gathers toward the blade before the release.
+      g.lineStyle(1, skill.color, state.anticipation * 0.55);
+      for (let index = 0; index < 6; index++) {
+        const angle = index * 1.05 + pose.instance,
+          far = 26 + (1 - state.anticipation) * 44,
+          near = far * 0.55;
+        g.lineBetween(
+          x + Math.cos(angle) * far,
+          y - 27 + Math.sin(angle) * far * 0.6,
+          x + Math.cos(angle) * near,
+          y - 27 + Math.sin(angle) * near * 0.6,
+        );
+      }
+    }
+    if (state.impact > 0.01) {
+      // Each hit moment pulses outward from the caster.
+      const pulse = 22 + (1 - state.impact) * skill.radius;
+      g.lineStyle(2, skill.color, state.impact * 0.7);
+      g.strokeEllipse(x, y - 27, pulse * 2, pulse * 1.1);
+      g.fillStyle(0xfffbe6, state.impact * 0.12);
+      g.fillEllipse(x, y - 27, pulse * 1.5, pulse * 0.8);
+    }
+    if (!reduced && state.recovery > 0 && state.recovery < 1)
+      // The light lets go: motes drift up as the stance settles.
+      for (let index = 0; index < 6; index++) {
+        const drift = state.recovery,
+          px = x + Math.sin(index * 2.4 + pose.instance) * (14 + drift * 22),
+          py = y - 16 - index * 5 - drift * 26;
+        g.fillStyle(skill.color, (1 - drift) * 0.7);
+        g.fillCircle(px, py, 1.6 * (1 - drift * 0.5));
+      }
+    const cy = y - 28;
     if (pose.id === "branch") {
+      // A lance of refracted light: a tapered wake behind the thrust, a bright
+      // tip ahead of it, and shards of the prism shed along the way.
+      const length = 40 + state.release * 115;
+      g.fillStyle(0x9de6d6, alpha * 0.16);
+      g.beginPath();
+      g.moveTo(x + facing * 34, cy);
+      g.lineTo(x - facing * length, cy - 15);
+      g.lineTo(x - facing * length * 0.78, cy);
+      g.lineTo(x - facing * length, cy + 15);
+      g.closePath();
+      g.fillPath();
+      g.fillStyle(0xfffbe6, alpha * 0.55);
+      g.fillTriangle(
+        x + facing * 56,
+        cy,
+        x + facing * 18,
+        cy - 6,
+        x + facing * 18,
+        cy + 6,
+      );
       for (let strand = 0; strand < (reduced ? 1 : 3); strand++) {
         g.lineStyle(
           strand === 0 ? 2.5 : 1,
@@ -113,10 +229,9 @@ export class SkillArt {
         g.beginPath();
         for (let index = 0; index <= 18; index++) {
           const u = index / 18;
-          const px = x + facing * (16 - u * 115);
+          const px = x + facing * (16 - u * length);
           const py =
-            y -
-            28 +
+            cy +
             Math.sin(u * Math.PI + strand * 0.8) * (8 + strand * 5) +
             u * u * 14;
           if (index === 0) g.moveTo(px, py);
@@ -124,16 +239,47 @@ export class SkillArt {
         }
         g.strokePath();
       }
-      if (!reduced) {
-        g.lineStyle(1, 0xb2eee0, alpha * 0.45);
-        for (let index = 0; index < 4; index++) {
-          const px = x - facing * (18 + index * 24);
-          const py = y - 28 + Math.sin(index + pose.age * 10) * 12;
-          g.strokeTriangle(px, py - 7, px + facing * 12, py, px, py + 7);
+      if (!reduced)
+        for (let index = 0; index < 6; index++) {
+          const px = x - facing * (24 + index * 22 + ((pose.age * 90) % 22));
+          const py = cy + Math.sin(index * 1.9 + pose.age * 14) * 17;
+          g.fillStyle(index % 2 ? 0xfff1c4 : 0xb2eee0, alpha * 0.75);
+          g.fillTriangle(px, py - 5, px + 3, py, px, py + 5);
+          g.fillTriangle(px, py - 5, px - 3, py, px, py + 5);
         }
-      }
     } else if (pose.id === "rise") {
+      // A crescent of new growth sweeps up in front; vines climb behind it and
+      // leaves are carried upward from a burst at the feet.
       const growth = Math.min(1, Math.max(0, (pose.age - 0.08) / 0.16));
+      const from = -0.7,
+        span = 2.5 * growth;
+      g.fillStyle(0xd5ecb5, alpha * 0.22);
+      g.beginPath();
+      for (let index = 0; index <= 14; index++) {
+        const a = from + (index / 14) * span;
+        const px = x + facing * Math.cos(a) * 66,
+          py = cy - Math.sin(a) * 66;
+        if (index === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      for (let index = 14; index >= 0; index--) {
+        const u = index / 14,
+          a = from + u * span,
+          r = 66 - Math.sin(u * Math.PI) * 22;
+        g.lineTo(x + facing * Math.cos(a) * r, cy - Math.sin(a) * r);
+      }
+      g.closePath();
+      g.fillPath();
+      g.lineStyle(2, 0xfbf6d2, alpha * 0.8);
+      g.beginPath();
+      for (let index = 0; index <= 14; index++) {
+        const a = from + (index / 14) * span;
+        const px = x + facing * Math.cos(a) * 66,
+          py = cy - Math.sin(a) * 66;
+        if (index === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
       for (let strand = 0; strand < (reduced ? 1 : 2); strand++) {
         g.lineStyle(
           strand ? 1 : 2.5,
@@ -150,23 +296,44 @@ export class SkillArt {
           const py = y + 14 - u * 106;
           if (index === 0) g.moveTo(px, py);
           else g.lineTo(px, py);
-          if (!reduced && index % 6 === 0) {
-            g.fillStyle(0xc6e8b1, alpha * 0.55);
-            g.fillTriangle(
-              px,
-              py,
-              px + facing * 12,
-              py - 7,
-              px + facing * 9,
-              py + 3,
-            );
-          }
         }
         g.strokePath();
       }
+      if (!reduced)
+        for (let index = 0; index < 6; index++) {
+          const climb = (pose.age * 170 + index * 21) % 120;
+          const px = x + facing * Math.sin(index * 2.1 + pose.age * 9) * 30,
+            py = y - 6 - climb;
+          g.fillStyle(0xc6e8b1, alpha * 0.7 * (1 - climb / 120));
+          g.fillTriangle(
+            px,
+            py,
+            px + facing * 11,
+            py - 6,
+            px + facing * 8,
+            py + 3,
+          );
+        }
     } else {
+      // A flower of dew opens around the body: a soft core, filled petals
+      // turning with the blade, and a ring of droplets turning against it.
+      const reach = 22 + state.radius;
+      g.fillStyle(0xffe7b8, alpha * 0.12);
+      g.fillEllipse(x, cy, state.radius * 2.3, state.radius * 1.5);
       for (let petal = 0; petal < (reduced ? 3 : 6); petal++) {
         const angle = (petal * Math.PI) / 3 + state.turn * facing;
+        g.fillStyle(
+          petal % 2 ? 0xffe9bc : 0xb7edde,
+          alpha * (reduced ? 0.16 : 0.24),
+        );
+        g.fillTriangle(
+          x + Math.cos(angle) * reach,
+          cy + Math.sin(angle) * reach * 0.65,
+          x + Math.cos(angle - 0.42) * 16,
+          cy + Math.sin(angle - 0.42) * 16 * 0.65,
+          x + Math.cos(angle + 0.42) * 16,
+          cy + Math.sin(angle + 0.42) * 16 * 0.65,
+        );
         g.lineStyle(
           petal % 2 ? 1 : 2,
           petal % 2 ? 0xffe9bc : 0xb7edde,
@@ -178,12 +345,19 @@ export class SkillArt {
           const theta = angle + (u - 0.5) * 1.15;
           const radius = 18 + Math.sin(u * Math.PI) * state.radius;
           const px = x + Math.cos(theta) * radius;
-          const py = y - 28 + Math.sin(theta) * radius * 0.65;
+          const py = cy + Math.sin(theta) * radius * 0.65;
           if (index === 0) g.moveTo(px, py);
           else g.lineTo(px, py);
         }
         g.strokePath();
       }
+      if (!reduced)
+        for (let index = 0; index < 8; index++) {
+          const a = (index * Math.PI) / 4 - state.turn * facing * 0.5,
+            r = state.radius + 32;
+          g.fillStyle(0xfffbe6, alpha * 0.85);
+          g.fillCircle(x + Math.cos(a) * r, cy + Math.sin(a) * r * 0.65, 2);
+        }
     }
   }
 }

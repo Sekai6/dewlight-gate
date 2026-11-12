@@ -46,5 +46,16 @@ for (const hit of step.hits)
       damage(enemy);
 ```
 
+## Buffering and cancels
+
+- A press is remembered for `buffer` seconds (0.2 by default) and starts as soon
+  as it may: when the active skill reaches recovery, or when `hold` (a dash, say)
+  ends. `blocked` (a stun) drops both the active skill and the buffered press.
+- `cancelInto` lists the other actions of your game that may interrupt a
+  skill's recovery; ask with `skills.allows("dash")`.
+- `hitCancel: { after, into }` opens only after you report a landed hit with
+  `skills.confirm(hit.instance)`: the listed actions and skills may then
+  interrupt from `after` seconds on. A miss opens nothing.
+
 `tick` advances in 1/120 s substeps, so results are the same at 10 or 120 frames
 per second. `tick(0)` changes nothing, which makes pausing trivial.

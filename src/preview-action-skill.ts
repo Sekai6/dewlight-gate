@@ -5,15 +5,23 @@ import { guardianAction } from "./action-drivers";
 import { GuardianArt } from "./boss-art";
 import { createGuardian, stepGuardian } from "./boss";
 import { SkillRuntime } from "@dewlight/action-skill";
-import { SKILLS, SKILL_IDS, type SkillId } from "./content/skills.ts";
+import {
+  MOVES,
+  SKILLS,
+  SKILL_IDS,
+  isSkill,
+  type MoveId,
+  type SkillId,
+  type SkillPose,
+} from "./content/skills.ts";
 import { SkillArt } from "./skill-art";
 import { createPresentation, samplePresentation } from "./skill-presentation";
 import type { SkillEvent } from "@dewlight/action-skill";
 import type { Difficulty } from "./boss";
 document.body.innerHTML = `<main><header><h1>Action-skill · 剑舞实验室</h1><a href="./">返回游戏</a> · <a href="?action-a">ACTION-A 骨骼预览</a></header><nav>
-<label>回放 <select id="scenario"><option value="combo">Q → R → F 连携</option>${SKILL_IDS.map((id) => `<option value="${id}">${SKILLS[id].key} · ${SKILLS[id].name}</option>`).join("")}<option value="charge">Boss 冲锋</option><option value="slam">Boss 根浪</option><option value="crystal">Boss 折冠散晶</option><option value="garden">Boss 根庭绽刺</option><option value="radiance">Boss 露冠辉落</option></select></label>
+<label>回放 <select id="scenario"><option value="combo">Q → R → F 连携</option><option value="sword">J × 3 连斩</option>${SKILL_IDS.map((id) => `<option value="${id}">${SKILLS[id].key} · ${SKILLS[id].name}</option>`).join("")}<option value="charge">Boss 冲锋</option><option value="slam">Boss 根浪</option><option value="crystal">Boss 折冠散晶</option><option value="garden">Boss 根庭绽刺</option><option value="radiance">Boss 露冠辉落</option></select></label>
 <label>朝向 <select id="facing"><option value="1">向右</option><option value="-1">向左</option></select></label><label>难度 <select id="difficulty"><option value="normal">普通</option><option value="challenge">挑战</option></select></label>
-<label>速度 <select id="rate"><option value="1">正常</option><option value="0.25">¼ 慢放</option></select></label><label><input id="bones" type="checkbox" checked>骨骼与握柄</label><label><input id="ranges" type="checkbox" checked>实际命中范围</label><label><input id="effects" type="checkbox" checked>技能演出</label><label><input id="reduced" type="checkbox">减少动态</label>
+<label>速度 <select id="rate"><option value="1">正常</option><option value="0.25">¼ 慢放</option></select></label><label><input id="bones" type="checkbox" checked>骨骼与握柄</label><label><input id="ranges" type="checkbox" checked>实际命中范围</label><label><input id="confirm" type="checkbox" checked>视为命中（开放命中取消）</label><label><input id="effects" type="checkbox" checked>技能演出</label><label><input id="reduced" type="checkbox">减少动态</label>
 <button id="pause">暂停</button><button id="step">步进 1/120 秒</button><button id="phase">到下一阶段</button><button id="reset">重新回放</button></nav><div id="stage"></div><pre id="diagnostics"></pre><p>固定 120 Hz 模拟；范围来自技能定义；角色、约束、剑路和 Boss 危险区复用游戏实现。此页仅开发模式可访问。</p></main>`;
 const css = document.createElement("style");
 css.textContent = `body{margin:0;background:#152f35;color:#ecedcf;font:14px system-ui}main{max-width:1400px;margin:auto;padding:20px}header{display:flex;align-items:center;gap:14px}h1{font-size:24px;margin-right:auto}a{color:#c5e6ca}nav{display:flex;flex-wrap:wrap;gap:14px;margin:18px 0;align-items:center}button,select{background:#2b4e50;color:#f4e7be;border:1px solid #739d90;border-radius:7px;padding:8px}#stage{height:500px;overflow:hidden;border:1px solid #719489;border-radius:15px}pre{white-space:pre-wrap;line-height:1.6;min-height:150px;color:#c8e3d0}p{color:#9db7ab}`;
@@ -31,7 +39,7 @@ let paused = false,
   vy = 0,
   energy = 100,
   sent = 0;
-const runtime = new SkillRuntime(SKILLS);
+const runtime = new SkillRuntime(MOVES);
 let boss = createGuardian(),
   events: SkillEvent[] = [];
 const path: { x: number; y: number }[] = [];
@@ -60,17 +68,18 @@ class Preview extends Phaser.Scene {
       return;
     }
     const input = { energy, grounded: y >= 1100, facing };
-    const order: SkillId[] =
+    const order: MoveId[] =
       scenario === "combo"
         ? ["branch", "rise", "bloom"]
-        : [scenario as SkillId];
-    if (
-      sent < order.length &&
-      (!runtime.active || runtime.active.phase === "recovery")
-    ) {
+        : scenario === "sword"
+          ? ["slash1", "slash2", "slash3"]
+          : [scenario as MoveId];
+    if (sent < order.length && runtime.canStart(order[sent])) {
       if (runtime.request(order[sent], input)) sent++;
     }
     const out = runtime.tick(dt, input);
+    if (checked("confirm"))
+      for (const hit of out.hits) runtime.confirm(hit.instance);
     energy -= out.cost;
     x += out.dx;
     if (out.launch !== null) vy = out.launch;
@@ -79,7 +88,8 @@ class Preview extends Phaser.Scene {
     if (y >= 1100) vy = 0;
     for (const e of out.events) {
       events.push(e);
-      this.art.event(e, x, y, clock, facing);
+      if (isSkill(e.skill))
+        this.art.event(e as SkillEvent<SkillId>, x, y, clock, facing);
     }
     if (events.length > 24) events.splice(0, events.length - 24);
     path.push({ x, y });
@@ -93,13 +103,17 @@ class Preview extends Phaser.Scene {
       this.simulate(1 / 120);
       remainder -= 1 / 120;
     }
-    const isBoss = !["combo", ...SKILL_IDS].includes(value("scenario"));
+    const isBoss = !["combo", "sword", ...SKILL_IDS].includes(
+      value("scenario"),
+    );
     this.g.clear();
     this.g.lineStyle(2, 0x718f75, 0.8);
     this.g.lineBetween(isBoss ? 2380 : 100, 1100, isBoss ? 3160 : 1000, 1100);
     const pose = runtime.pose,
       facing = Number(value("facing")),
       reduced = checked("reduced");
+    const skillPose =
+      pose && isSkill(pose.id) ? (pose as SkillPose) : undefined;
     this.cameras.main
       .centerOn(isBoss ? 2770 : 540, 1000)
       .setZoom(isBoss ? 1.35 : 2);
@@ -109,10 +123,10 @@ class Preview extends Phaser.Scene {
       y,
       clock,
       facing,
-      action: pose ? `skill-${pose.id}` : y < 1100 ? "fall" : "idle",
+      action: pose ? MOVES[pose.id].action : y < 1100 ? "fall" : "idle",
       age: pose?.age ?? clock,
-      instance: pose ? `skill:${pose.instance}` : undefined,
-      skillPose: pose,
+      instance: pose ? `move:${pose.instance}` : undefined,
+      skillPose: pose && isSkill(pose.id) ? pose : undefined,
       vx: 0,
       vy,
       grounded: y >= 1100,
@@ -125,12 +139,12 @@ class Preview extends Phaser.Scene {
     this.art.draw(
       clock,
       { x, y, facing },
-      pose,
+      skillPose,
       reduced,
       !isBoss && checked("effects"),
     );
     if (checked("ranges") && pose) {
-      const d = SKILLS[pose.id];
+      const d = MOVES[pose.id];
       for (const h of d.hits) {
         const active =
           Math.abs(pose.age - h.at) < 0.035 ||
@@ -156,9 +170,9 @@ class Preview extends Phaser.Scene {
       this.g.strokePath();
     }
     const snap = this.hero.snapshot();
-    if (pose) samplePresentation(pose, this.presentation);
+    if (skillPose) samplePresentation(skillPose, this.presentation);
     el("diagnostics").textContent =
-      `${isBoss ? `BOSS ${boss.phase} · ${boss.hp}/${boss.maxHp} · hazards=${boss.hazards.length}` : `${pose?.id ?? "idle"} / ${pose?.phase ?? "complete"} / ${(pose?.age ?? 0).toFixed(3)}s`} | 模拟 ${clock.toFixed(3)}s\n光能 ${energy} | ${JSON.stringify(runtime.snapshot().cooldowns)}\n握柄误差 ${snap.armError.toFixed(5)} px · 剑尖速度 ${snap.swordSpeed.toFixed(1)} px/s\n演出蓄势 ${pose ? this.presentation.anticipation.toFixed(2) : "0"} · 释放 ${pose ? this.presentation.release.toFixed(2) : "0"} · 收势 ${pose ? this.presentation.recovery.toFixed(2) : "1"}\n事件 ${events.map((e) => `${e.instance}:${e.type}${e.section === undefined ? "" : `#${e.section}`}@${e.at.toFixed(3)}`).join(" → ")}`;
+      `${isBoss ? `BOSS ${boss.phase} · ${boss.hp}/${boss.maxHp} · hazards=${boss.hazards.length}` : `${pose?.id ?? "idle"} / ${pose?.phase ?? "complete"} / ${(pose?.age ?? 0).toFixed(3)}s`} | 模拟 ${clock.toFixed(3)}s\n缓冲 ${runtime.pending ?? "无"} · 命中确认 ${runtime.active?.confirmed ? "是" : "否"} · 现在可接：招式 ${runtime.canStart("slash1") ? "是" : "否"} / 冲刺 ${runtime.allows("dash") ? "是" : "否"} / 跳跃 ${runtime.allows("jump") ? "是" : "否"}\n光能 ${energy} |  ${JSON.stringify(runtime.snapshot().cooldowns)}\n握柄误差 ${snap.armError.toFixed(5)} px · 剑尖速度 ${snap.swordSpeed.toFixed(1)} px/s\n演出蓄势 ${pose ? this.presentation.anticipation.toFixed(2) : "0"} · 释放 ${pose ? this.presentation.release.toFixed(2) : "0"} · 收势 ${pose ? this.presentation.recovery.toFixed(2) : "1"}\n事件 ${events.map((e) => `${e.instance}:${e.type}${e.section === undefined ? "" : `#${e.section}`}@${e.at.toFixed(3)}`).join(" → ")}`;
   }
 }
 const game = new Phaser.Game({
@@ -209,7 +223,7 @@ el("phase").onclick = () => {
   paused = true;
   el("pause").textContent = "播放";
   const scene = game.scene.getScenes(true)[0] as Preview;
-  const isBoss = !["combo", ...SKILL_IDS].includes(value("scenario"));
+  const isBoss = !["combo", "sword", ...SKILL_IDS].includes(value("scenario"));
   if (!isBoss && !runtime.active) scene.simulate(1 / 120);
   const phase = isBoss ? boss.phase : runtime.active?.phase;
   if (!phase) return;

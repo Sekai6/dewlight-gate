@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SkillRuntime } from "@dewlight/action-skill";
-import { SKILLS, SKILL_IDS } from "../src/content/skills.ts";
+import { MOVES, SKILLS, SKILL_IDS, nextAttack } from "../src/content/skills.ts";
 import {
   createGuardian,
   stepGuardian,
@@ -218,4 +218,40 @@ test("gravity reduction integrates exactly 0.48 seconds, including partial subst
       reduction += (1 - runtime.tick(1 / fps, input).gravity) / fps;
     assert.ok(Math.abs(reduction - 0.48 * 0.8) < 1e-9);
   }
+});
+
+test("presses wait in the buffer; only a landed hit lets the next move start early", () => {
+  const ground = { ...input, grounded: true };
+  const whiff = new SkillRuntime(MOVES);
+  whiff.request("slash1", ground);
+  whiff.tick(0.1, ground);
+  whiff.request("slash2", ground);
+  whiff.tick(0.08, ground);
+  assert.equal(whiff.active?.skill, "slash1");
+  whiff.tick(0.08, ground);
+  assert.equal(whiff.active?.skill, "slash2");
+  const hit = new SkillRuntime(MOVES);
+  hit.request("slash1", ground);
+  hit.tick(0.1, ground);
+  hit.confirm(hit.active!.id);
+  hit.request("slash2", ground);
+  assert.equal(hit.allows("jump"), false);
+  const step = hit.tick(0.06, ground);
+  assert.equal(hit.active?.skill, "slash2");
+  assert.equal(step.events[0].type, "cancel");
+});
+test("a held input survives a dash; the sword combo runs three swings then restarts", () => {
+  const s = new SkillRuntime(MOVES);
+  s.request("branch", input);
+  s.tick(0.1, { ...input, hold: true });
+  assert.equal(s.active, null);
+  assert.equal(s.pending, "branch");
+  s.tick(0.02, input);
+  assert.equal(s.active?.skill, "branch");
+  assert.equal(nextAttack(true, undefined, 9), "slash1");
+  assert.equal(nextAttack(true, "slash1", 0.2), "slash2");
+  assert.equal(nextAttack(true, "slash2", 0.2), "slash3");
+  assert.equal(nextAttack(true, "slash3", 0.2), "slash1");
+  assert.equal(nextAttack(true, "slash1", 1), "slash1");
+  assert.equal(nextAttack(false, "slash1", 0.1), "air");
 });

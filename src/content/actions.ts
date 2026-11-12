@@ -29,6 +29,7 @@ export const ACTIONS = [
   "slash",
   "rising-slash",
   "air-slash",
+  "finisher",
   "dash",
   "bind",
   "hurt",
@@ -45,7 +46,7 @@ export type Action = (typeof ACTIONS)[number];
 const group = (...actions: Action[]): ReadonlySet<string> => new Set(actions);
 
 /** Sword attacks: one latched instance, three-phase timing. */
-export const ATTACKS = group("slash", "rising-slash", "air-slash");
+export const ATTACKS = group("slash", "rising-slash", "air-slash", "finisher");
 /** Played on the combat layer. */
 export const COMBAT_ACTIONS = group(
   "skill-branch",
@@ -60,6 +61,7 @@ export const COMBAT_ACTIONS = group(
   "slash",
   "rising-slash",
   "air-slash",
+  "finisher",
   "bind",
   "dash",
   "windup",
@@ -111,6 +113,7 @@ export const IMPULSIVE = group(
   "slash",
   "rising-slash",
   "air-slash",
+  "finisher",
   "dash",
   "strike",
   "slam",
@@ -121,6 +124,7 @@ export const RECOVERY_CANCEL = group(
   "slash",
   "rising-slash",
   "air-slash",
+  "finisher",
   "dash",
   "bind",
   "launch",

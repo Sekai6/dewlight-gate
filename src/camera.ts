@@ -27,6 +27,7 @@ export class JourneyCamera {
       onGround: boolean;
       dashAt: number;
       attackAt: number;
+      strikeAt?: number;
       arena?: { left: number; right: number; floor: number };
     },
     width: number,
@@ -55,7 +56,7 @@ export class JourneyCamera {
         ? Math.min(1, age / 0.6) * Math.min(1, (3 - age) / 0.8)
         : 0;
     const dash = p.clock - p.dashAt < 0.35;
-    const combat = p.clock - p.attackAt < 0.6;
+    const combat = p.clock - Math.max(p.attackAt, p.strikeAt ?? -999) < 0.6;
     const targetZoom =
       baseZoom *
       (reduced
