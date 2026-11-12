@@ -78,6 +78,8 @@ export interface Enemy {
   go?: boolean;
   /** Altitude slot among moths sharing a fight. */
   slot?: number;
+  /** Current height offset easing toward that slot. */
+  stackY?: number;
   /** The last skill wind-up it noticed, and when it will act on it. */
   sawCast?: number;
   dodgeAt?: number;
@@ -226,7 +228,8 @@ export function coordinateCreatures(
   let waiting: Enemy | undefined,
     waitingScore = Infinity,
     ready: Enemy | undefined,
-    readyDistance = Infinity;
+    readyDistance = Infinity,
+    newest: Enemy | undefined;
   for (const e of enemies) {
     if (e.hp <= 0) {
       if (e.corpse && !e.mourned) {
@@ -241,29 +244,33 @@ export function coordinateCreatures(
       }
       continue;
     }
-    const fighting =
-      (e.phase === "alert" ||
-        e.phase === "engage" ||
-        e.phase === "windup" ||
-        e.phase === "strike") &&
+    const near =
       Math.abs(e.x - player.x) < FIGHT_RANGE &&
       Math.abs(e.floor - player.y) < FIGHT_HEIGHT;
+    // Moths in one fight fly at staggered heights, whatever they are doing.
+    e.slot = e.type && near ? moths++ : undefined;
+    if (e.phase === "windup" || e.phase === "strike") {
+      // An announced attack counts wherever the player has gone since.
+      holders++;
+      e.go = false;
+      lastWarn = Math.max(
+        lastWarn,
+        e.phase === "windup" ? e.phaseAt : e.phaseAt - creatureTuning(e).windup,
+      );
+      if (e.phase === "windup" && (!newest || e.phaseAt > newest.phaseAt))
+        newest = e;
+      continue;
+    }
+    // A bound creature takes no turn and holds no slot.
+    const fighting =
+      near && e.bound <= time && (e.phase === "alert" || e.phase === "engage");
     if (!fighting) {
       if (e.phase === "patrol" || e.phase === "return")
         e.token = e.go = undefined;
+      else e.token = e.go = false;
       continue;
     }
-    if (e.type) e.slot = moths++;
     e.go = false;
-    if (e.phase === "windup" || e.phase === "strike") {
-      holders++;
-      const t = creatureTuning(e);
-      lastWarn = Math.max(
-        lastWarn,
-        e.phase === "windup" ? e.phaseAt : e.phaseAt - t.windup,
-      );
-      continue;
-    }
     const distance = Math.abs(e.x - player.x);
     if (e.token) {
       holders++;
@@ -284,6 +291,16 @@ export function coordinateCreatures(
   }
   // A player in trouble faces one attacker at a time.
   const slots = (player.hp ?? 5) <= 2 ? 1 : 2;
+  if (holders > slots && newest) {
+    // The limit just dropped with two already committed: the later telegraph
+    // is called off before it can strike.
+    newest.phase = "engage";
+    newest.phaseAt = time;
+    newest.warn = 0;
+    newest.token = false;
+    newest.cool = Math.max(newest.cool, time + 0.4);
+    holders--;
+  }
   if (waiting && holders < slots) {
     waiting.token = true;
     if (Math.abs(waiting.x - player.x) < readyDistance) ready = waiting;
@@ -349,6 +366,8 @@ export function stepCreature(
   const enter = (phase: CreaturePhase) => {
     e.phase = phase;
     e.phaseAt = time;
+    // Waiting for an opening starts over with every change of plan.
+    e.inRangeAt = undefined;
   };
   const move = (direction: number, speed: number) => {
     e.x = clamp(e.x + direction * speed * dt, lo, hi);
@@ -490,8 +509,12 @@ export function stepCreature(
   }
   e.gait += Math.abs(e.x - before) / 40;
   const phaseAge = time - e.phaseAt;
+  // Ease between altitude slots so the group never jumps.
+  e.stackY =
+    (e.stackY ?? 0) +
+    ((e.slot ?? 0) * t.stack - (e.stackY ?? 0)) * (1 - Math.exp(-dt * 5));
   const float = t.flying
-    ? t.hover + Math.sin(time * 2 + e.home) * t.bob + (e.slot ?? 0) * t.stack
+    ? t.hover + Math.sin(time * 2 + e.home) * t.bob + e.stackY
     : 0;
   // The moth's dive stays within the same readable vertical attack band.
   const dive =

@@ -149,7 +149,7 @@ export interface DewGuardian {
   recent: BossMove[];
   habit: PlayerHabit;
   /** Where the player stood when the current telegraph began. */
-  read?: { x: number; side: number };
+  read?: { x: number; side: number; jumped?: boolean };
   phase: BossPhase;
   until: number;
   facing: number;
@@ -272,7 +272,7 @@ export function stepGuardian(
     h.retreat *= 0.7;
     h.stay *= 0.7;
     const side = player.x < b.x ? -1 : 1;
-    if (player.onGround === false) h.jump++;
+    if (from.jumped || player.onGround === false) h.jump++;
     else if (side !== from.side) h.through++;
     else if ((player.x - from.x) * from.side > 80) h.retreat++;
     else h.stay++;
@@ -349,6 +349,8 @@ export function stepGuardian(
       });
   };
   if (b.phase === "defeated") return { damage, started };
+  // A jump counts even if the player lands before the telegraph ends.
+  if (b.read && player.onGround === false) b.read.jumped = true;
   if (b.phase === "sleep") {
     if (
       player.x > GUARDIAN.left + 40 &&
@@ -494,6 +496,8 @@ export function stepGuardian(
     } else if (b.phase === "combo-gap") {
       const next = b.nextCombo!;
       b.nextCombo = undefined;
+      b.recent.push(next);
+      if (b.recent.length > 4) b.recent.shift();
       prepare(next);
     } else if (b.phase.endsWith("-warn")) {
       learn();

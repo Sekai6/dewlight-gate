@@ -104,8 +104,9 @@ test("a read skill makes a walker hop back, harmlessly and not again before its 
       1,
       (time) => {
         if (e.phase === "hop" && last !== "hop") hops.push(time);
-        last = e.phase;
+        // A hop is an escape, never the start of an attack.
         assert.ok(e.phase !== "strike" || last !== "hop");
+        last = e.phase;
       },
       1.2,
     );
