@@ -8,6 +8,9 @@ import type { ActorInput, ActorState } from "./state.ts";
 
 const LEG_PARTS = ["thigh", "shin", "knee", "ankle", "foot"];
 const BLEND = ["x", "y", "a", "b", "c", "d", "rotation"] as const;
+/** The solid mass that rests on the ground; limbs and cloth drape around it. */
+const CORE = new Set(["torso", "head", "abdomen"]);
+const SOFT = new Set(["cape", "wingBack", "wingFront"]);
 
 /** Stage 5: the hit ragdoll. The whole body tumbles about the hip while four
  *  inertial end points (hands and feet) trail on rigid two-bone limbs. */
@@ -18,6 +21,10 @@ export class DollStage {
   private limb: LimbSolution = { jointX: 0, jointY: 0, x: 0, y: 0 };
   private lastAngle = 0;
   private head = 0;
+  private bend = 0;
+  private bendSpeed = 0;
+  private sink = 0;
+  private impactSeen = -1;
   constructor(
     private state: ActorState,
     private grip: WeaponGrip,
@@ -25,8 +32,10 @@ export class DollStage {
   reset() {
     this.solver.reset();
     this.instance = "";
-    this.entry = {};
+    this.entry = Object.create(null);
     this.lastAngle = this.head = 0;
+    this.bend = this.bendSpeed = this.sink = 0;
+    this.impactSeen = -1;
   }
   /** Call once per frame before the pose is rebuilt. Returns true when a
    *  ragdoll began or ended, which invalidates the weapon trail. */
@@ -35,6 +44,8 @@ export class DollStage {
     if (input.doll?.active && input.doll.instance !== this.instance) {
       this.instance = input.doll.instance;
       this.lastAngle = this.head = 0;
+      this.bend = this.bendSpeed = this.sink = 0;
+      this.impactSeen = -1;
       this.solver.reset();
       // Remember the pose at impact and seed the end points with its momentum.
       for (const [key, value] of Object.entries(world))
@@ -42,9 +53,8 @@ export class DollStage {
       if (world.weapon) {
         const drift = -input.vx * input.facing;
         this.solver.seed(0, world.weapon.x, world.weapon.y, drift * 0.18, 30);
-        // Legacy: the free hand is seeded at the front forearm's length.
         const back = world.foreBack,
-          length = rig.arms.front.lower;
+          length = rig.arms.back.lower;
         this.solver.seed(
           1,
           back.x + back.c * length,
@@ -87,7 +97,8 @@ export class DollStage {
     const state = this.state,
       { rig, world, parts, feet, knees, hips, contact } = state;
     const doll = input.doll!;
-    const solver = this.solver;
+    const solver = this.solver,
+      tune = rig.doll;
     const weight = doll.weight;
     const angle =
       (input.reduced ? Math.sin(doll.angle) * 0.5 : doll.angle) * input.facing;
@@ -95,7 +106,8 @@ export class DollStage {
     solver.output.weight = weight;
     solver.output.error = 0;
     // Ease out of the pose held at impact, then tumble the body about the hip.
-    const entryWeight = Math.max(0, 1 - doll.age / 0.1);
+    const held = Math.max(0, 1 - doll.age / 0.1);
+    const entryWeight = held * held * (3 - 2 * held);
     for (const [name, t] of Object.entries(world)) {
       const entry = this.entry[name];
       if (entry && entryWeight > 0)
@@ -106,10 +118,19 @@ export class DollStage {
     const c = Math.cos(angle),
       s = Math.sin(angle);
     rotateAbout(Object.values(world), cx, cy, angle);
+    const floor = input.dollFloor ?? Infinity;
+    const spin = dt > 0 ? (angle - this.lastAngle) / dt : 0;
+    this.bendSpine(input, spin, floor, dt);
+    rotateAbout(
+      state.chestBones.map((name) => world[name]),
+      world.torso.x,
+      world.torso.y,
+      this.bend,
+    );
     // The head lags the spin.
     const headTarget =
       dt > 0
-        ? clamp((-(angle - this.lastAngle) / dt) * 0.018, -0.22, 0.22) * weight
+        ? clamp(-spin * tune.headLag, -tune.headLimit, tune.headLimit) * weight
         : 0;
     this.head = approach(this.head, headTarget, dt, 16);
     rotateAbout(
@@ -118,7 +139,7 @@ export class DollStage {
       world.head.y,
       this.head,
     );
-    const floor = input.dollFloor ?? Infinity;
+    const drop = this.settle(input, angle, floor, dt);
     for (let i = 0; i < 2; i++) {
       const arm = world[i ? "armBack" : "arm"],
         fore = world[i ? "foreBack" : "fore"],
@@ -140,6 +161,7 @@ export class DollStage {
         weight,
         floor - 4,
         this.limb,
+        tune,
         contact,
       );
       aimBone(arm, arm.x, arm.y, limb.jointX, limb.jointY);
@@ -169,11 +191,11 @@ export class DollStage {
     for (let i = 0; i < 2; i++) {
       const offset = (i ? 1 : -1) * rig.footSpan * 0.6;
       const hx = cx + c * offset,
-        hy = cy + s * offset;
+        hy = cy + s * offset + drop;
       const fx = feet[i].x - cx,
         fy = feet[i].y - cy;
       const tx = cx + c * fx - s * fy,
-        ty = cy + s * fx + c * fy;
+        ty = cy + s * fx + c * fy + drop;
       if (!solver.ready) solver.seed(i + 2, tx, ty, 0, 0);
       const limb = solver.solve(
         i + 2,
@@ -188,6 +210,7 @@ export class DollStage {
         weight,
         floor - 2,
         this.limb,
+        tune,
         contact,
       );
       hips[i].x = hx;
@@ -208,13 +231,8 @@ export class DollStage {
     // Keep the complete silhouette above its support surface; translate the
     // whole constrained body, never individual bones after solving lengths.
     let bottom = -Infinity;
-    for (const skin of rig.skin) {
-      const t = world[skin.bone],
-        origin = skin.originY ?? 0.5;
-      for (const x of [-skin.width / 2, skin.width / 2])
-        for (const y of [-origin * skin.height, (1 - origin) * skin.height])
-          bottom = Math.max(bottom, t.y + t.b * x + t.d * y);
-    }
+    for (const skin of rig.skin)
+      if (!SOFT.has(skin.bone)) bottom = Math.max(bottom, this.lowest(skin));
     const legParts = [0, 1].flatMap((i) =>
       LEG_PARTS.map((name) => parts.get(`${name}${i}`)!),
     );
@@ -242,5 +260,70 @@ export class DollStage {
     state.armError = solver.output.error;
     solver.ready = true;
     this.lastAngle = angle;
+  }
+  /** Lowest corner of one skin sprite, actor-local. */
+  private lowest(skin: ActorState["rig"]["skin"][number]) {
+    const t = this.state.world[skin.bone],
+      origin = skin.originY ?? 0.5;
+    let low = -Infinity;
+    for (const x of [-skin.width / 2, skin.width / 2])
+      for (const y of [-origin * skin.height, (1 - origin) * skin.height])
+        low = Math.max(low, t.y + t.b * x + t.d * y);
+    return low;
+  }
+  /** The chest trails the tumble, curls up in the air and folds on impact. */
+  private bendSpine(
+    input: ActorInput,
+    spin: number,
+    floor: number,
+    dt: number,
+  ) {
+    const doll = input.doll!,
+      tune = this.state.rig.doll;
+    const loose = input.reduced ? 0 : doll.weight;
+    if (doll.impactAt !== this.impactSeen) {
+      this.impactSeen = doll.impactAt;
+      if (doll.impactAt >= 0) {
+        this.bendSpeed += doll.impact * tune.jolt * loose;
+        if (doll.impact > 0.15)
+          this.state.motes.push({
+            x: input.x,
+            y: input.y + (Number.isFinite(floor) ? floor : 0),
+            time: input.clock,
+            kind: "impact",
+          });
+      }
+    }
+    const target =
+      (clamp(-spin * tune.spine, -tune.spineLimit, tune.spineLimit) +
+        (floor > 1 ? tune.curl : 0)) *
+        loose +
+      // A mid-air recovery tucks through its flip.
+      (doll.phase === "recover" && floor > 1 && !input.reduced
+        ? tune.curl * 3 * Math.sin(Math.PI * doll.weight)
+        : 0);
+    let remaining = Math.min(dt, 0.25);
+    while (remaining > 1e-8) {
+      const h = Math.min(1 / 120, remaining);
+      remaining -= h;
+      this.bendSpeed =
+        (this.bendSpeed + (target - this.bend) * 160 * h) * Math.exp(-h * 12);
+      this.bend += this.bendSpeed * h;
+    }
+    this.bend = clamp(this.bend, -0.9, 0.9);
+  }
+  /** A body lying down rests on its mass, not on a hip pivot held in the air.
+   *  Returns how far the whole body was lowered. */
+  private settle(input: ActorInput, angle: number, floor: number, dt: number) {
+    const { rig, world } = this.state;
+    let bottom = -Infinity;
+    for (const skin of rig.skin)
+      if (CORE.has(skin.bone)) bottom = Math.max(bottom, this.lowest(skin));
+    const gap = Math.max(0, floor - 1 - bottom);
+    const lying = Math.sin(angle) ** 2 * input.doll!.weight;
+    const target = floor < 1 && !input.reduced ? gap * lying : 0;
+    this.sink = Math.min(gap, approach(this.sink, target, dt, 22));
+    if (this.sink > 0) for (const t of Object.values(world)) t.y += this.sink;
+    return this.sink;
   }
 }

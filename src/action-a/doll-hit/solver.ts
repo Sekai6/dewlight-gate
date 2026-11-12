@@ -1,3 +1,4 @@
+import type { DollTuning } from "../rigs";
 import type { ContactController } from "../contact/controller.ts";
 import { clamp } from "../core.ts";
 import { limbError, solveLimb, type LimbSolution } from "../ik.ts";
@@ -43,6 +44,7 @@ export class DollPoseSolver {
     weight: number,
     floor: number,
     out: LimbSolution,
+    tuning: DollTuning,
     contacts?: ContactController,
   ) {
     const p = this.output.points[index];
@@ -50,9 +52,12 @@ export class DollPoseSolver {
     while (remaining > 1e-8) {
       const h = Math.min(1 / 120, remaining);
       remaining -= h;
-      p.vx = (p.vx + (targetX - p.x) * 100 * h) * Math.exp(-h * 7);
+      const decay = Math.exp(-h * tuning.damping);
+      p.vx = (p.vx + (targetX - p.x) * tuning.stiffness * h) * decay;
       p.vy =
-        (p.vy + ((targetY - p.y) * 100 + 150 * weight) * h) * Math.exp(-h * 7);
+        (p.vy +
+          ((targetY - p.y) * tuning.stiffness + tuning.gravity * weight) * h) *
+        decay;
       p.x += p.vx * h;
       p.y += p.vy * h;
       // Limit the shoulder/hip cone before enforcing exact segment lengths.
@@ -64,12 +69,19 @@ export class DollPoseSolver {
         Math.abs(upper - lower) + 0.5,
         upper + lower - 0.2,
       );
-      const bounded = rest + clamp(delta, -1.25, 1.25);
+      const bounded = rest + clamp(delta, -tuning.cone, tuning.cone);
       p.x = anchorX + Math.cos(bounded) * radius;
       p.y = Math.min(floor, anchorY + Math.sin(bounded) * radius);
     }
     const x = targetX + (p.x - targetX) * weight,
       y = targetY + (p.y - targetY) * weight;
+    // A knee or elbow never folds into the ground: bend the other way instead.
+    solveLimb(anchorX, anchorY, x, y, upper, lower, bend, out);
+    if (out.jointY > floor) {
+      const low = out.jointY;
+      solveLimb(anchorX, anchorY, x, y, upper, lower, -bend, out);
+      if (out.jointY < low) bend = -bend;
+    }
     const result = contacts?.solve(
       {
         id:

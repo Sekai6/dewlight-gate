@@ -43,7 +43,7 @@ controls.innerHTML += `<label>Replay <select id="replay"><option value="off">Man
 document.querySelector("#stage")!.before(controls);
 controls.insertAdjacentHTML(
   "beforeend",
-  `<label>受击 <select id="doll-kind"><option value="off">关闭</option><option value="ground">轻击</option><option value="flying">飞行扑击</option><option value="charge">冲锋击飞</option><option value="wave">根浪掀飞</option></select></label><label><input id="doll-air" type="checkbox">空中起始</label><label><input id="doll-auto" type="checkbox">自动演示受身</label><button id="doll-recover">受身（空格 / Shift）</button>`,
+  `<label>受击 <select id="doll-kind"><option value="off">关闭</option><option value="ground">轻击</option><option value="flying">飞行扑击</option><option value="charge">冲锋击飞</option><option value="wave">根浪掀飞</option><option value="defeat">击败（不起身）</option></select></label><label><input id="doll-wall" type="checkbox">墙壁</label><label><input id="doll-air" type="checkbox">空中起始</label><label><input id="doll-auto" type="checkbox">自动演示受身</label><button id="doll-recover">受身（空格 / Shift）</button>`,
 );
 controls.insertAdjacentHTML(
   "beforeend",
@@ -97,7 +97,8 @@ let dollY = 360,
   dollVy = 0,
   dollTime = 0,
   dollRemainder = 0,
-  dollSerial = 0;
+  dollSerial = 0,
+  dollWall = 0;
 el("doll-recover").onclick = () => doll.requestRecovery();
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space" || e.code === "ShiftLeft" || e.code === "ShiftRight") {
@@ -283,7 +284,7 @@ class Studio extends Phaser.Scene {
       reduced: el<HTMLInputElement>("reduced").checked,
     };
     const dollKind = el<HTMLSelectElement>("doll-kind").value;
-    const dollPreview = kind === "hero" && dollKind !== "off";
+    const dollPreview = kind !== "guardian" && dollKind !== "off";
     if (dollPreview) {
       if (!doll.state.instance || dollTime > 3) {
         doll.reset();
@@ -292,13 +293,17 @@ class Studio extends Phaser.Scene {
         dollRemainder = 0;
         dollY = el<HTMLInputElement>("doll-air").checked ? 260 : 360;
         x = game.scale.width / 2;
-        doll.start({
-          kind: dollKind as HitKind,
-          sourceX: x - dir * 50,
-          sourceY: 360,
-          direction: dir,
-          instance: `preview:${++dollSerial}`,
-        });
+        doll.start(
+          {
+            kind: dollKind as HitKind,
+            sourceX: x - dir * 50,
+            sourceY: 360,
+            direction: dir,
+            instance: `preview:${++dollSerial}`,
+          },
+          dollKind === "defeat",
+        );
+        dollWall = x + dir * 150;
         dollVx = dir * doll.profile.horizontal;
         dollVy = -doll.profile.upward;
       }
@@ -312,10 +317,17 @@ class Studio extends Phaser.Scene {
           dollTime < 0.26
         )
           doll.requestRecovery();
-        doll.tick(1 / 120, dollY >= 360);
+        doll.tick(1 / 120, dollY >= 360, dollVx);
         dollVx = doll.drag(dollVx, 1 / 120, dollY >= 360);
         dollVy += 1350 / 120;
         x += dollVx / 120;
+        if (
+          el<HTMLInputElement>("doll-wall").checked &&
+          (x - dollWall) * Math.sign(dollVx) > 0
+        ) {
+          x = dollWall;
+          dollVx = doll.wall(dollVx);
+        }
         dollY += dollVy / 120;
         if (dollY >= 360 && dollVy >= 0) {
           dollY = 360;
@@ -472,6 +484,7 @@ for (const id of [
   "replay",
   "doll-kind",
   "doll-air",
+  "doll-wall",
   "doll-auto",
 ])
   el(id).onchange = reset;

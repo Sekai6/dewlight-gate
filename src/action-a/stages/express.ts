@@ -21,6 +21,7 @@ export class BodyExpression {
   apply(pose: Pose, input: ActorInput, reacting: boolean) {
     const { rig, layers, recovery } = this.state;
     this.bodyMotion(pose, input);
+    if (input.alpha !== undefined) pose.root.alpha *= input.alpha;
     if (this.impulseEnabled) {
       const impulse = this.impulse.update(input, rig.motion.impulseGain);
       const ownership = input.doll?.active ? 0 : 1;
