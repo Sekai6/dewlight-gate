@@ -3,7 +3,11 @@ import type { ActorInput } from "./stages/state.ts";
 import type { WeaponTrail } from "./stages/trail.ts";
 
 /** The output side of an actor. A view creates the parts in `state.parts`
- *  once, in draw order, and presents them after every solve. */
+ *  once, in draw order, and presents them after every solve.
+ *
+ *  Required parts: one per `rig.skin` entry, keyed by its bone name, plus the
+ *  leg parts the solvers place for each leg `i` (0 and 1): `thigh{i}`,
+ *  `shin{i}`, `knee{i}`, `ankle{i}` and `foot{i}`. */
 export interface ActorView {
   showBones: boolean;
   reset(): void;

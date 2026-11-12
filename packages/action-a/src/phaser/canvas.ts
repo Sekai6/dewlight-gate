@@ -2,6 +2,8 @@ import Phaser from "phaser";
 
 import type { RigPart } from "../part.ts";
 
+export type PhaserPart = RigPart<Phaser.Textures.Frame>;
+
 /**
  * One render-list object drawing ordered rig parts.
  *
@@ -12,13 +14,13 @@ import type { RigPart } from "../part.ts";
  */
 export function attachCanvasRig(
   container: Phaser.GameObjects.Container,
-  parts: () => Iterable<RigPart>,
+  parts: () => Iterable<PhaserPart>,
   extent = 128,
 ) {
   let surface: HTMLCanvasElement | undefined;
   let paint: CanvasRenderingContext2D | undefined;
   let revision = -1;
-  let ordered: RigPart[] | undefined;
+  let ordered: PhaserPart[] | undefined;
   container.setBlendMode(Phaser.BlendModes.NORMAL);
   Object.assign(container, {
     renderCanvas(
@@ -65,7 +67,7 @@ export function attachCanvasRig(
 /** Draw every part under the affine (a b c d e f) with absolute transforms. */
 function drawParts(
   ctx: CanvasRenderingContext2D,
-  parts: readonly RigPart[],
+  parts: readonly PhaserPart[],
   a: number,
   b: number,
   c: number,
@@ -76,7 +78,7 @@ function drawParts(
 ) {
   for (const p of parts) {
     if (p.alpha <= 0) continue;
-    const frame = p.frame as Phaser.Textures.Frame;
+    const frame = p.frame;
     const pa = p.matrix?.a ?? Math.cos(p.rotation),
       pb = p.matrix?.b ?? Math.sin(p.rotation),
       pc = p.matrix?.c ?? -pb,

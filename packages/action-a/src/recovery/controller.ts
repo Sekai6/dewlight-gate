@@ -134,7 +134,7 @@ export class RecoveryController {
       ? "none"
       : !input.grounded
         ? "air"
-        : d?.kind === "ground"
+        : d && !d.lie
           ? "slide"
           : "stand";
     this.output.crouch = approach(
@@ -153,7 +153,7 @@ export class RecoveryController {
       surface?.left !== undefined &&
       surface.right !== undefined &&
       shoulder &&
-      d?.kind !== "ground"
+      !!d?.lie
     ) {
       const x = clamp(shoulder.x, input.x - 20, input.x + 20),
         y = surface.y - 2;

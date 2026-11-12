@@ -1,9 +1,10 @@
 import { DollHitController } from "@dewlight/action-a";
+import { HIT_PROFILES, type HitKind } from "./content/hits.ts";
 
 export type CreaturePhase = "patrol" | "windup" | "strike" | "recover";
 /** A defeated creature's body, knocked away and left to settle. Visual only. */
 export interface Corpse {
-  doll: DollHitController;
+  doll: DollHitController<HitKind>;
   vx: number;
   vy: number;
   /** Where it was defeated; reduced motion keeps the body there. */
@@ -71,7 +72,7 @@ export function hurtCreature(e: Enemy, time: number, direction: number) {
   if (e.hp <= 0) {
     e.diedAt = time;
     e.liftVy = undefined;
-    const doll = new DollHitController();
+    const doll = new DollHitController(HIT_PROFILES);
     doll.start(
       {
         kind: "defeat",

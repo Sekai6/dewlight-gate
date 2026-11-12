@@ -31,7 +31,8 @@ import {
   GUARDIAN,
 } from "./boss";
 import { Effects } from "./effects";
-import { DollHitController, type HitContext } from "@dewlight/action-a";
+import { DollHitController } from "@dewlight/action-a";
+import { HIT_PROFILES, type Hit as HitContext } from "./content/hits.ts";
 import { drawMonument } from "./entities";
 import { CreatureDirector } from "./creature-art";
 import {
@@ -633,7 +634,7 @@ class Journey extends Phaser.Scene {
   landingSpeed = 0;
   hurtAt = -999;
   hitDirection = 0;
-  readonly doll = new DollHitController();
+  readonly doll = new DollHitController(HIT_PROFILES);
   private hitSerial = 0;
   get dollPose() {
     return this.doll.state.active ? this.doll.state : null;

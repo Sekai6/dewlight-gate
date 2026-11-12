@@ -82,7 +82,7 @@ export class ImpulseController {
     const identity =
       input.instance ??
       `${input.action}:${(input.clock - input.age).toFixed(4)}`;
-    const transient = strength !== undefined;
+    const transient = strength !== undefined && strength !== 0;
     if (
       transient &&
       identity !== this.identity &&

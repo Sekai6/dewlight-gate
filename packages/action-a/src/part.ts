@@ -4,7 +4,7 @@ export interface PartFrame {
   cutHeight: number;
 }
 /** One sprite of a rig as plain pose data. Solvers write it, a renderer draws it. */
-export class RigPart {
+export class RigPart<Frame extends PartFrame = PartFrame> {
   revision = 0;
   matrix: { a: number; b: number; c: number; d: number } | null = null;
   setMatrix(a: number, b: number, c: number, d: number) {
@@ -26,8 +26,8 @@ export class RigPart {
   displayHeight = 1;
   originX = 0.5;
   originY = 0.5;
-  readonly frame: PartFrame;
-  constructor(frame: PartFrame) {
+  readonly frame: Frame;
+  constructor(frame: Frame) {
     this.frame = frame;
   }
   setPosition(x: number, y: number) {

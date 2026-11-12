@@ -22,6 +22,15 @@ export class SkillRuntime<Id extends string = string> {
   constructor(skills: Readonly<Record<Id, SkillDefinition>>) {
     this.skills = skills;
     this.ids = Object.keys(skills) as Id[];
+    for (const id of this.ids) {
+      const d = skills[id];
+      if (!(d.duration > 0))
+        throw new RangeError(`skill "${id}": duration must be positive`);
+      if (d.movement && !(d.movement.end > d.movement.start))
+        throw new RangeError(
+          `skill "${id}": movement must end after it starts`,
+        );
+    }
     this.cooldowns = Object.fromEntries(
       this.ids.map((id) => [id, 0]),
     ) as Record<Id, number>;

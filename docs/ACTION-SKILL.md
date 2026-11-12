@@ -32,7 +32,7 @@ Q、R 分别从 0.26／0.30 秒开始接下一技能。最后一个有效技能�
 
 | 文件／模块 | 职责 |
 | --- | --- |
-| `packages/action-skill/src/types.ts` | 定义、实例、输入、事件、命中请求、快照、难度和动画姿态类型 |
+| `packages/action-skill/src/types.ts` | 定义、实例、输入、事件、命中请求、快照和动画姿态类型（难度类型在 `src/boss.ts`） |
 | `src/content/skills.ts` | 技能资源、阶段、运动、伤害窗口（难度参数在 `boss.ts`） |
 | `packages/action-skill/src/runtime.ts` | 纯 TypeScript 120 Hz 技能运行与仲裁；阶段跨越、输入缓冲、冷却与命中去重 |
 | `packages/action-skill/src/query.ts` | 独立于 Phaser 和动画的根部空间命中范围查询 |

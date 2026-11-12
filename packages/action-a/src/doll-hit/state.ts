@@ -1,6 +1,6 @@
-export type HitKind = "ground" | "flying" | "charge" | "wave" | "defeat";
-export interface HitContext {
-  kind: HitKind;
+/** One hit. `kind` names a profile given to the controller. */
+export interface HitContext<Kind extends string = string> {
+  kind: Kind;
   sourceX: number;
   sourceY: number;
   direction: number;
@@ -19,54 +19,6 @@ export interface DollHitProfile {
   /** Heavy hits end flat on the ground; light ones only stagger. */
   lie: boolean;
 }
-export const HIT_PROFILES: Record<HitKind, DollHitProfile> = {
-  ground: {
-    horizontal: 180,
-    upward: 120,
-    lock: 0.18,
-    bounces: 0,
-    spin: 1.5,
-    restitution: [0.32, 0.18],
-    lie: false,
-  },
-  flying: {
-    horizontal: 320,
-    upward: 240,
-    lock: 0.3,
-    bounces: 1,
-    spin: 6,
-    restitution: [0.34, 0.18],
-    lie: true,
-  },
-  charge: {
-    horizontal: 620,
-    upward: 400,
-    lock: 0.3,
-    bounces: 2,
-    spin: 13,
-    restitution: [0.36, 0.2],
-    lie: true,
-  },
-  wave: {
-    horizontal: 280,
-    upward: 590,
-    lock: 0.3,
-    bounces: 2,
-    spin: 11,
-    restitution: [0.32, 0.18],
-    lie: true,
-  },
-  /** A creature knocked out of the fight. */
-  defeat: {
-    horizontal: 250,
-    upward: 300,
-    lock: 0.3,
-    bounces: 1,
-    spin: 8,
-    restitution: [0.3, 0.15],
-    lie: true,
-  },
-};
 /** Seconds spent in each phase, and the limits around them. */
 export const DOLL_TIMING = {
   impact: 0.065,
@@ -87,7 +39,9 @@ export type DollPhase =
   "idle" | "impact" | "air" | "bounce" | "roll" | "rise" | "recover" | "down";
 export interface DollHitState {
   active: boolean;
-  kind: HitKind;
+  kind: string;
+  /** The hit lays the body flat; otherwise it only staggers. */
+  lie: boolean;
   instance: string;
   direction: number;
   age: number;
@@ -109,7 +63,8 @@ export interface DollHitState {
 }
 const fresh = (): DollHitState => ({
   active: false,
-  kind: "ground",
+  kind: "",
+  lie: false,
   instance: "",
   direction: 1,
   age: 0,
@@ -132,8 +87,12 @@ const ROLL_RADIUS = 30;
 const smooth = (u: number) => u * u * (3 - 2 * u);
 
 /** Game-time state only. The caller owns position, terrain and HP. */
-export class DollHitController {
+export class DollHitController<Kind extends string = string> {
   readonly state = fresh();
+  readonly profiles: Readonly<Record<Kind, DollHitProfile>>;
+  constructor(profiles: Readonly<Record<Kind, DollHitProfile>>) {
+    this.profiles = profiles;
+  }
   private bufferedAt = -999;
   private recoveryAngle = 0;
   private recoveryTarget = 0;
@@ -146,23 +105,24 @@ export class DollHitController {
   clearBuffer() {
     this.bufferedAt = -999;
   }
-  start(hit: HitContext, stay = false): boolean {
+  start(hit: HitContext<Kind>, stay = false): boolean {
     if (this.state.active || this.state.instance === hit.instance) return false;
     const direction = Math.sign(hit.direction) || 1;
     Object.assign(this.state, fresh(), {
       active: true,
       kind: hit.kind,
+      lie: this.profiles[hit.kind].lie,
       instance: hit.instance,
       direction,
       phase: "impact",
-      spin: HIT_PROFILES[hit.kind].spin * direction,
+      spin: this.profiles[hit.kind].spin * direction,
       stay,
     });
     this.clearBuffer();
     return true;
   }
   get profile() {
-    return HIT_PROFILES[this.state.kind];
+    return this.profiles[this.state.kind as Kind];
   }
   private phase(phase: DollPhase) {
     this.state.phase = phase;

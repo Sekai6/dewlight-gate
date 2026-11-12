@@ -60,5 +60,7 @@ The rig is a biped with two arms. Other body plans are not supported yet.
 ## Renderers
 
 Implement `ActorView` to draw with something else: create one `RigPart` per
-sprite in `state.parts` (draw order), then present them in `submit` and draw
+skin sprite in `state.parts` (draw order) plus the leg parts `thigh{i}`,
+`shin{i}`, `knee{i}`, `ankle{i}` and `foot{i}` for legs 0 and 1, which the
+solvers place themselves. Then present them in `submit` and draw
 overlays in `render`. `src/phaser/view.ts` is the reference.

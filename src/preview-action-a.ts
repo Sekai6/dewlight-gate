@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { PhaserActor as ActionActor } from "@dewlight/action-a/phaser";
-import { DollHitController, type HitKind } from "@dewlight/action-a";
+import { DollHitController } from "@dewlight/action-a";
+import { HIT_PROFILES, type HitKind } from "./content/hits.ts";
 import { ACTIONS, type Action } from "./content/actions.ts";
 import { createActor } from "./content/actors.ts";
 import type { ActorKind } from "./content/rigs.ts";
@@ -82,7 +83,7 @@ function plotImpulse(time: number, values: number[]) {
     },
   );
 }
-const doll = new DollHitController();
+const doll = new DollHitController(HIT_PROFILES);
 let dollY = 360,
   dollVx = 0,
   dollVy = 0,

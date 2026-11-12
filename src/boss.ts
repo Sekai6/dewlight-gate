@@ -1,6 +1,6 @@
 // The first guardian is a short duel: read the crown, dodge, punish recovery.
 // All deadlines use game time, so menus and browser blur freeze the encounter.
-import type { HitContext } from "@dewlight/action-a";
+import type { Hit as HitContext } from "./content/hits.ts";
 
 export type Difficulty = "normal" | "challenge";
 export interface DifficultyProfile {

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { RigPart } from "../part.ts";
-import { attachCanvasRig } from "./canvas.ts";
+import { attachCanvasRig, type PhaserPart } from "./canvas.ts";
 import type { WeaponGrip } from "../stages/grip.ts";
 import type { ActorInput, ActorState } from "../stages/state.ts";
 import type { WeaponTrail } from "../stages/trail.ts";
@@ -10,7 +10,7 @@ import { traitsOf } from "../definition.ts";
 
 interface Echo {
   container: Phaser.GameObjects.Container;
-  images: RigPart[];
+  images: PhaserPart[];
   born: number;
 }
 
@@ -38,7 +38,8 @@ export class PhaserActorView implements ActorView {
     const { rig, parts } = state;
 
     this.container = scene.add.container(0, 0).setDepth(depth);
-    attachCanvasRig(this.container, () => parts.values(), rig.extent);
+    const drawn: PhaserPart[] = [];
+    attachCanvasRig(this.container, () => drawn, rig.extent);
     this.trail = scene.add.graphics().setDepth(depth + 0.15);
     this.accents = scene.add.graphics().setDepth(depth - 0.1);
     this.debug = scene.add.graphics().setDepth(depth + 1);
@@ -48,13 +49,13 @@ export class PhaserActorView implements ActorView {
       w: number,
       h: number,
       originY = 0.5,
-    ) =>
-      parts.set(
-        name,
-        new RigPart(scene.textures.getFrame(texture, frame))
-          .setDisplaySize(w, h)
-          .setOrigin(0.5, originY),
-      );
+    ) => {
+      const part = new RigPart(scene.textures.getFrame(texture, frame))
+        .setDisplaySize(w, h)
+        .setOrigin(0.5, originY);
+      drawn.push(part);
+      parts.set(name, part);
+    };
     // Draw order: skin behind the legs, the legs, then the rest by depth.
     for (const s of rig.skin.filter((s) => (s.depth ?? 0) < 0))
       add(s.bone, s.texture, s.width, s.height, s.originY);
@@ -76,7 +77,7 @@ export class PhaserActorView implements ActorView {
           .container(0, 0)
           .setDepth(depth - 0.2)
           .setVisible(false);
-        const images = [...parts.values()].map((source) =>
+        const images = drawn.map((source) =>
           new RigPart(source.frame)
             .setOrigin(source.originX, source.originY)
             .setTint(0xb9e5d4),

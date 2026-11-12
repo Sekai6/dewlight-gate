@@ -7,12 +7,14 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./phaser": {
-      "types": "./src/phaser/index.ts",
-      "default": "./src/phaser/index.ts"
+      "source": "./src/phaser/index.ts",
+      "types": "./dist/phaser/index.d.ts",
+      "default": "./dist/phaser/index.js"
     }
   },
   "files": [
@@ -30,5 +32,8 @@
     "phaser": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "phaser": "^3.90.0"
   }
 }

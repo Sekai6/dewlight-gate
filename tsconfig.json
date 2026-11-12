@@ -13,7 +13,10 @@
       "@webgpu/types"
     ],
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "customConditions": [
+      "source"
+    ]
   },
   "include": [
     "src",
