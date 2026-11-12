@@ -59,15 +59,21 @@ export class CanvasPart {
   }
 }
 
-/** One render-list object, one camera transform, ordered draws of cached parts. */
+/**
+ * One render-list object drawing ordered rig parts.
+ *
+ * Opaque rigs draw straight onto the game canvas: source-over is associative,
+ * so the result matches compositing through an intermediate surface without
+ * the per-frame clear, repaint and scaled blit. Only a translucent group needs
+ * the surface, so overlapping parts fade as one silhouette.
+ */
 export function attachCanvasRig(
   container: Phaser.GameObjects.Container,
   parts: () => Iterable<CanvasPart>,
   extent = 128,
 ) {
-  const surface = document.createElement("canvas");
-  surface.width = surface.height = extent * 4;
-  const paint = surface.getContext("2d", { willReadFrequently: true })!;
+  let surface: HTMLCanvasElement | undefined;
+  let paint: CanvasRenderingContext2D | undefined;
   let revision = -1;
   let ordered: CanvasPart[] | undefined;
   container.setBlendMode(Phaser.BlendModes.NORMAL);
@@ -77,56 +83,80 @@ export function attachCanvasRig(
       src: Phaser.GameObjects.Container,
       camera: Phaser.Cameras.Scene2D.Camera,
     ) {
-      if (src.alpha <= 0) return;
+      const alpha = camera.alpha * src.alpha;
+      if (alpha <= 0) return;
       camera.addToRenderList(src);
       const ctx = renderer.currentContext;
-      const matrix = Phaser.GameObjects.GetCalcMatrix(src, camera).calc;
-      ctx.save();
-      matrix.setToContext(ctx);
-      ctx.globalCompositeOperation = "source-over";
-      ctx.imageSmoothingEnabled = true;
+      const m = Phaser.GameObjects.GetCalcMatrix(src, camera).calc;
       // Rig construction finishes before first render; its part order is fixed.
       ordered ??= Array.from(parts());
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.imageSmoothingEnabled = true;
+      if (alpha >= 0.999) {
+        drawParts(ctx, ordered, m.a, m.b, m.c, m.d, m.tx, m.ty, 1);
+        ctx.restore();
+        return;
+      }
+      if (!surface) {
+        surface = document.createElement("canvas");
+        surface.width = surface.height = extent * 4;
+        paint = surface.getContext("2d")!;
+      }
       let current = 0;
       for (const p of ordered) current += p.revision;
       if (current !== revision) {
         revision = current;
-        paint.setTransform(1, 0, 0, 1, 0, 0);
-        paint.clearRect(0, 0, surface.width, surface.height);
-        for (const p of ordered) {
-          if (p.alpha <= 0) continue;
-          const f = p.frame;
-          const a = p.matrix?.a ?? Math.cos(p.rotation),
-            b = p.matrix?.b ?? Math.sin(p.rotation),
-            c = p.matrix?.c ?? -b,
-            d = p.matrix?.d ?? a;
-          // Absolute transforms avoid a Canvas save/translate/rotate/restore
-          // stack for every limb while retaining exactly the same affine pose.
-          paint.setTransform(
-            a * 2,
-            b * 2,
-            c * 2,
-            d * 2,
-            (extent + p.x) * 2,
-            (extent + p.y) * 2,
-          );
-          paint.globalAlpha = p.alpha;
-          paint.drawImage(
-            f.source.image as CanvasImageSource,
-            f.cutX,
-            f.cutY,
-            f.cutWidth,
-            f.cutHeight,
-            -p.originX * p.displayWidth,
-            -p.originY * p.displayHeight,
-            p.displayWidth,
-            p.displayHeight,
-          );
-        }
+        paint!.setTransform(1, 0, 0, 1, 0, 0);
+        paint!.clearRect(0, 0, surface.width, surface.height);
+        drawParts(paint!, ordered, 2, 0, 0, 2, extent * 2, extent * 2, 1);
       }
-      ctx.globalAlpha = camera.alpha * src.alpha;
+      m.setToContext(ctx);
+      ctx.globalAlpha = alpha;
       ctx.drawImage(surface, -extent, -extent, extent * 2, extent * 2);
       ctx.restore();
     },
   });
+}
+
+/** Draw every part under the affine (a b c d e f) with absolute transforms. */
+function drawParts(
+  ctx: CanvasRenderingContext2D,
+  parts: readonly CanvasPart[],
+  a: number,
+  b: number,
+  c: number,
+  d: number,
+  e: number,
+  f: number,
+  alpha: number,
+) {
+  for (const p of parts) {
+    if (p.alpha <= 0) continue;
+    const frame = p.frame;
+    const pa = p.matrix?.a ?? Math.cos(p.rotation),
+      pb = p.matrix?.b ?? Math.sin(p.rotation),
+      pc = p.matrix?.c ?? -pb,
+      pd = p.matrix?.d ?? pa;
+    ctx.setTransform(
+      a * pa + c * pb,
+      b * pa + d * pb,
+      a * pc + c * pd,
+      b * pc + d * pd,
+      a * p.x + c * p.y + e,
+      b * p.x + d * p.y + f,
+    );
+    ctx.globalAlpha = p.alpha * alpha;
+    ctx.drawImage(
+      frame.source.image as CanvasImageSource,
+      frame.cutX,
+      frame.cutY,
+      frame.cutWidth,
+      frame.cutHeight,
+      -p.originX * p.displayWidth,
+      -p.originY * p.displayHeight,
+      p.displayWidth,
+      p.displayHeight,
+    );
+  }
 }

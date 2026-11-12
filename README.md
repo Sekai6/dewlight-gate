@@ -12,21 +12,21 @@
 
 运行 `npm run dev`：游戏 `http://127.0.0.1:5173/`，技能实验室 `http://127.0.0.1:5173/?action-skill`，骨骼预览 `http://127.0.0.1:5173/?action-a`。两个开发入口均从生产构建移除。
 
-[技能架构与参数](docs/ACTION-SKILL.md) · [验收报告](docs/ACTION-SKILL-ACCEPTANCE.md) · [版本说明与对照下载](https://github.com/Sekai6/dewlight-gate/releases/tag/v1.4.0)。对照包解压后打开 review.html，可同步观看正常及四分之一速度录像。
+[技能架构与参数](docs/ACTION-SKILL.md) · [版本说明与对照下载](https://github.com/Sekai6/dewlight-gate/releases/tag/v1.4.0)。对照包解压后打开 review.html，可同步观看正常及四分之一速度录像。
 
 ## v1.3.0 / ACTION-A SUPPORT · RECOVERY · CONTACT · IMPULSE · INTENT
 
-[Release notes](docs/RELEASE-v1.3.0.md) · [Round 6 architecture](docs/ACTION-A-ROUND6.md) · [Round 7 architecture and validation](docs/ACTION-A-ROUND7.md)
+[Release notes](docs/RELEASE-v1.3.0.md)
 
 ## v1.2.0 / ACTION-A-DOLL-HIT
 
 第六轮承重与复起及第七轮接触、发力、注意力已随 v1.3.0 发布。以下保留 v1.2.0 的布娃娃系统说明。
 
-本版包含 [ACTION-A 第五轮](docs/ACTION-A-ROUND5.md) 和 [ACTION-A-DOLL-HIT 分级受击 / 布娃娃击飞](docs/ACTION-A-DOLL-HIT.md)。主控受到不同攻击时会失衡、击飞、翻滚并起身；短暂失控后按空格或 Shift 可以受身。保留既有存档格式。详见 [版本说明](docs/RELEASE-v1.2.0.md)。
+本版包含 ACTION-A 第五轮和 [ACTION-A-DOLL-HIT 分级受击 / 布娃娃击飞](docs/ACTION-A-DOLL-HIT.md)。主控受到不同攻击时会失衡、击飞、翻滚并起身；短暂失控后按空格或 Shift 可以受身。保留既有存档格式。详见 [版本说明](docs/RELEASE-v1.2.0.md)。
 
 新版接入自研 ACTION-A 分层骨骼动画，覆盖主控、苔影、玻璃蛾和露冠守卫。重制剑舞发力链、动作衔接与受击反应，保持现有玩法和存档兼容。
 
-运行 `npm run dev` 后访问 `http://127.0.0.1:5173/?action-a` 可进入动作预览。[第四轮剑舞与战斗重制](docs/ACTION-A-ROUND4.md) · [第三轮分层重构与夸张动作](docs/ACTION-A-ROUND3.md) · [系统说明与验收方法](docs/ACTION-A.md)。
+运行 `npm run dev` 后访问 `http://127.0.0.1:5173/?action-a` 可进入动作预览。[系统说明](docs/ACTION-A.md)。
 
 ## 游戏特色
 
@@ -91,9 +91,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright 自动启动开发服务；本地可复用已有服务。CI 检查格式、单元测试、浏览器测试及构建，通过后自动部署 GitHub Pages；PR 只检查。原生 WebGPU 检查按适配器能力跳过，跳过不代表 GPU 验证通过。
-
-`scripts/` 保留专项复现脚本，生成结果写入未提交的 `artifacts/`。完整流程检查使用实时引导与普通控制完成灯环、Boss 和三碑；局部演示脚本可能定位初始场景，不能替代完整通关证据。
+Playwright 自动启动开发服务；本地可复用已有服务。浏览器测试只保留开局、技能、Boss、存档续玩和结尾五个冒烟用例。CI 检查格式、单元测试、浏览器测试及构建，通过后自动部署 GitHub Pages；PR 只检查。
 
 ## 存档与限制
 
@@ -107,7 +105,7 @@ Playwright 自动启动开发服务；本地可复用已有服务。CI 检查格
 
 欢迎提交问题与 Pull Request。反馈请附浏览器、窗口尺寸、复现步骤及截图；提交改动前运行上述检查。请勿提交凭据、环境变量文件、依赖、构建产物或测试录像目录。
 
-当前发布素材仅保留两张截图和一段录像。历史说明见 [版本迭代记录](docs/RELEASE-HISTORY.md) 与 [验收记录](AUDIT.md)，其中旧版本数字及本地证据路径不代表当前公开版本。
+当前发布素材仅保留两张截图和一段录像。
 
 ## 许可
 

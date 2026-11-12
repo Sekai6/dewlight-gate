@@ -9,7 +9,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "playwright test",
-    "format:check": "prettier --check src e2e tests scripts playwright.config.ts"
+    "format:check": "prettier --check src e2e tests playwright.config.ts"
   },
   "dependencies": {
     "phaser": "^3.90.0"

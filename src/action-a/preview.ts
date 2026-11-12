@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { ActionActor } from "./actor";
-import { ACTIONS, type Action, type ActorKind } from "./rigs";
-import { getClip } from "./rigs";
+import { ACTIONS, type Action } from "./actions.ts";
+import { getClip, type ActorKind } from "./rigs";
 import { DollHitController, type HitKind } from "./doll-hit/state";
 document.body.innerHTML = `<main id="studio"><header><strong>ACTION-A · 动作预览</strong><a href="/">返回游戏</a></header><nav>
 <label>角色 <select id="actor"><option value="hero">灯剑旅者</option><option value="moss">苔影</option><option value="moth">玻璃蛾</option><option value="guardian">露冠守卫</option></select></label>

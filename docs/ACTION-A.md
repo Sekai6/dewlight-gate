@@ -1,7 +1,5 @@
 # ACTION-A · 角色动画系统
 
-> 第二轮已在本地继续优化，当前结构、运行方法和验收记录见 [第二轮说明](ACTION-A-ROUND2.md)。本文下方的第一轮性能表保留作为历史记录。
-
 本轮在本地接入主控、苔影、玻璃蛾与露冠守卫。公开试玩仍是此前发布版本，待本地视觉验收后另行更新。
 
 ## 运行与预览
@@ -48,49 +46,6 @@ interface ActorInput {
 - 减少动态会压低跟随摆动、关闭刀光拖尾、残影与脚步装饰；肢体动作和攻击预警仍然保留。
 - Canvas 和 WebGPU 后处理共享同一套角色画面。
 
-## 本地验收与复现
-
-```powershell
-npm test
-npm run format:check
-npm run build
-npm run test:e2e
-node scripts/action-a-sheet.mjs
-node scripts/action-a-review.mjs
-```
-
-测试包含插值与跨角度、打断混合、上身覆盖、暂停与事件去重、IK 长度、阻尼帧率一致性；浏览器检查双向行走/跑动的支撑脚、挥剑方向、全角色姿态有效性、暂停与检查点重置、预览、图集透明边界，以及原有完整通关回归。
-
-### 对比材料
-
-所有录像、截图和报告位于被 Git 忽略的 `artifacts/action-a/`，不打包进入游戏：
-
-- `before/actions.webm`、`after/actions.webm`：改造前后相同输入、固定镜头的四段录像。
-- `sheets/hero.png`、`moss.png`、`moth.png`、`guardian.png`：动作关键姿势图。
-- `review.html`：本地并排录像，可切换 1×、0.5×、0.25×。
-- `performance.json`：同机、相同窗口与画质、关闭录像后的独立帧时间和对象/纹理记录。
-- `production.json`：生产版正常游玩及开发入口隔离结果。
-
-原版源码快照保存在 `artifacts/action-a/baseline-source/`，运行 `npx vite artifacts/action-a/baseline-source --port 5175 --host 127.0.0.1` 提供对照服务。主开发服务运行在 5173；两者启动后执行 `node scripts/action-a-performance.mjs`，再执行 `node scripts/action-a-report.mjs` 生成比较页。
-
-对照录像可通过 `ACTION_A_VARIANT=before` 和 `PLAY_URL=http://127.0.0.1:5175` 复现；默认记录当前版本。原有 `animation-sheet.mjs` 和 `creature-sheet.mjs` 已转接新姿势图生成器。
-
 ## 当前边界
 
-### 本机验收记录
-
-- 34 项单元测试通过；55 项完整浏览器回归通过，最后资产调整后的 6 项专项再次通过。原生 WebGPU 在本机实际执行通过，未计为跳过。
-- TypeScript、生产构建、格式检查和生产入口隔离检查通过。
-- 双向行走和跑动的支撑脚位移及锚点误差均通过 3 个世界像素上限检查；反复遍历六个花园不增加纹理和对象池。
-- 对比页已验证双视频播放、暂停和四分之一速播放。
-
-| 场景 | 旧版 / ACTION-A P95 帧间隔 | 旧版 / ACTION-A 主线程帧处理 P95 | 旧版 / ACTION-A 纹理数 |
-| --- | --- | --- | --- |
-| 安全开场 | 33.4 / 33.4 ms | 4.4 / 15.4 ms | 611 / 304 |
-| 玻璃蛾附近 | 33.3 / 33.3 ms | 4.5 / 19.1 ms | 614 / 307 |
-
-以上使用同机 Chromium、1440×900、绮梦画质、预热后 360 帧，录像关闭。每次测量前后对象及纹理数相同；完整原始结果保存在本地报告。
-
-ACTION-A 是本作内部可复用的模块，尚无可视化时间轴编辑器。脚部锚点针对现有水平平台，不包含斜坡或可旋转地形。关键姿势图用于检查构形，不代替实际播放；最终动作美感仍需结合本地试玩和录像验收。
-
-本机两处场景的 P95 帧间隔满足“不增加超过 15%”的门槛，纹理和对象池保持稳定；分层 Canvas 绘制的主线程帧处理耗时高于旧版，详见 `performance.json` 的 `cpuP95` 字段。该字段测量 PRE_STEP 到 POST_RENDER 的墙钟时间，包含绘制提交和可能的 GPU 等待，并非操作系统 CPU 使用率。性能记录仅代表本机的指定场景，不能推广到所有显卡或浏览器；没有原生 WebGPU 适配器的环境须明确记录跳过。
+ACTION-A 是本作内部可复用的模块，尚无可视化时间轴编辑器。脚部锚点针对现有水平平台，不包含斜坡或可旋转地形。

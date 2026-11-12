@@ -14,7 +14,7 @@ import {
   paintDreamSprouts,
 } from "./dreamscape";
 import { ActionActor } from "./action-a/actor";
-import { heroAction } from "./action-a/drivers";
+import { heroAction } from "./action-drivers";
 import type { DollHitState } from "./action-a/doll-hit/state";
 import type { Platform } from "./level";
 import { stones } from "./level";

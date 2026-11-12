@@ -1,16 +1,17 @@
 import Phaser from "phaser";
 import { ActionActor } from "../action-a/actor";
-import { guardianAction } from "../action-a/drivers";
+import { guardianAction } from "../action-drivers";
 import { GuardianArt } from "../boss-art";
 import { createGuardian, stepGuardian } from "../boss";
 import { SkillRuntime } from "./runtime";
 import { SKILLS, SKILL_IDS } from "./config";
 import { SkillArt } from "./art";
+import { createPresentation, samplePresentation } from "./presentation";
 import type { SkillId, Difficulty, SkillEvent } from "./types";
 document.body.innerHTML = `<main><header><h1>Action-skill · 剑舞实验室</h1><a href="./">返回游戏</a> · <a href="?action-a">ACTION-A 骨骼预览</a></header><nav>
 <label>回放 <select id="scenario"><option value="combo">Q → R → F 连携</option>${SKILL_IDS.map((id) => `<option value="${id}">${SKILLS[id].key} · ${SKILLS[id].name}</option>`).join("")}<option value="charge">Boss 冲锋</option><option value="slam">Boss 根浪</option><option value="crystal">Boss 折冠散晶</option><option value="garden">Boss 根庭绽刺</option><option value="radiance">Boss 露冠辉落</option></select></label>
 <label>朝向 <select id="facing"><option value="1">向右</option><option value="-1">向左</option></select></label><label>难度 <select id="difficulty"><option value="normal">普通</option><option value="challenge">挑战</option></select></label>
-<label>速度 <select id="rate"><option value="1">正常</option><option value="0.25">¼ 慢放</option></select></label><label><input id="bones" type="checkbox" checked>骨骼与握柄</label><label><input id="ranges" type="checkbox" checked>实际命中范围</label><label><input id="reduced" type="checkbox">减少动态</label>
+<label>速度 <select id="rate"><option value="1">正常</option><option value="0.25">¼ 慢放</option></select></label><label><input id="bones" type="checkbox" checked>骨骼与握柄</label><label><input id="ranges" type="checkbox" checked>实际命中范围</label><label><input id="effects" type="checkbox" checked>技能演出</label><label><input id="reduced" type="checkbox">减少动态</label>
 <button id="pause">暂停</button><button id="step">步进 1/120 秒</button><button id="phase">到下一阶段</button><button id="reset">重新回放</button></nav><div id="stage"></div><pre id="diagnostics"></pre><p>固定 120 Hz 模拟；范围来自技能定义；角色、约束、剑路和 Boss 危险区复用游戏实现。此页仅开发模式可访问。</p></main>`;
 const css = document.createElement("style");
 css.textContent = `body{margin:0;background:#152f35;color:#ecedcf;font:14px system-ui}main{max-width:1400px;margin:auto;padding:20px}header{display:flex;align-items:center;gap:14px}h1{font-size:24px;margin-right:auto}a{color:#c5e6ca}nav{display:flex;flex-wrap:wrap;gap:14px;margin:18px 0;align-items:center}button,select{background:#2b4e50;color:#f4e7be;border:1px solid #739d90;border-radius:7px;padding:8px}#stage{height:500px;overflow:hidden;border:1px solid #719489;border-radius:15px}pre{white-space:pre-wrap;line-height:1.6;min-height:150px;color:#c8e3d0}p{color:#9db7ab}`;
@@ -37,6 +38,7 @@ class Preview extends Phaser.Scene {
   bossArt!: GuardianArt;
   art!: SkillArt;
   g!: Phaser.GameObjects.Graphics;
+  presentation = createPresentation();
   create() {
     this.hero = new ActionActor(this, "hero", 5);
     this.bossArt = new GuardianArt(this);
@@ -75,7 +77,7 @@ class Preview extends Phaser.Scene {
     if (y >= 1100) vy = 0;
     for (const e of out.events) {
       events.push(e);
-      this.art.event(e, x, y, clock);
+      this.art.event(e, x, y, clock, facing);
     }
     if (events.length > 24) events.splice(0, events.length - 24);
     path.push({ x, y });
@@ -118,7 +120,13 @@ class Preview extends Phaser.Scene {
     });
     this.bossArt.actor.setDebug(checked("bones"));
     this.bossArt.draw(boss, clock, isBoss, reduced);
-    this.art.draw(clock, { x, y, facing }, pose, reduced, !isBoss);
+    this.art.draw(
+      clock,
+      { x, y, facing },
+      pose,
+      reduced,
+      !isBoss && checked("effects"),
+    );
     if (checked("ranges") && pose) {
       const d = SKILLS[pose.id];
       for (const h of d.hits) {
@@ -146,8 +154,9 @@ class Preview extends Phaser.Scene {
       this.g.strokePath();
     }
     const snap = this.hero.snapshot();
+    if (pose) samplePresentation(pose, this.presentation);
     el("diagnostics").textContent =
-      `${isBoss ? `BOSS ${boss.phase} · ${boss.hp}/${boss.maxHp} · hazards=${boss.hazards.length}` : `${pose?.id ?? "idle"} / ${pose?.phase ?? "complete"} / ${(pose?.age ?? 0).toFixed(3)}s`} | 模拟 ${clock.toFixed(3)}s\n光能 ${energy} | ${JSON.stringify(runtime.snapshot().cooldowns)}\n握柄误差 ${snap.armError.toFixed(5)} px · 剑尖速度 ${snap.swordSpeed.toFixed(1)} px/s\n事件 ${events.map((e) => `${e.instance}:${e.type}${e.section === undefined ? "" : `#${e.section}`}@${e.at.toFixed(3)}`).join(" → ")}`;
+      `${isBoss ? `BOSS ${boss.phase} · ${boss.hp}/${boss.maxHp} · hazards=${boss.hazards.length}` : `${pose?.id ?? "idle"} / ${pose?.phase ?? "complete"} / ${(pose?.age ?? 0).toFixed(3)}s`} | 模拟 ${clock.toFixed(3)}s\n光能 ${energy} | ${JSON.stringify(runtime.snapshot().cooldowns)}\n握柄误差 ${snap.armError.toFixed(5)} px · 剑尖速度 ${snap.swordSpeed.toFixed(1)} px/s\n演出蓄势 ${pose ? this.presentation.anticipation.toFixed(2) : "0"} · 释放 ${pose ? this.presentation.release.toFixed(2) : "0"} · 收势 ${pose ? this.presentation.recovery.toFixed(2) : "1"}\n事件 ${events.map((e) => `${e.instance}:${e.type}${e.section === undefined ? "" : `#${e.section}`}@${e.at.toFixed(3)}`).join(" → ")}`;
   }
 }
 const game = new Phaser.Game({
@@ -183,6 +192,7 @@ function reset() {
   const scene = game.scene.getScenes(true)[0] as Preview;
   scene?.hero?.reset();
   scene?.bossArt?.actor.reset();
+  scene?.art?.reset();
 }
 el("pause").onclick = () => {
   paused = !paused;
@@ -197,10 +207,13 @@ el("phase").onclick = () => {
   paused = true;
   el("pause").textContent = "播放";
   const scene = game.scene.getScenes(true)[0] as Preview;
-  const phase = runtime.active?.phase ?? boss.phase;
+  const isBoss = !["combo", ...SKILL_IDS].includes(value("scenario"));
+  if (!isBoss && !runtime.active) scene.simulate(1 / 120);
+  const phase = isBoss ? boss.phase : runtime.active?.phase;
+  if (!phase) return;
   for (let i = 0; i < 240; i++) {
     scene.simulate(1 / 120);
-    if ((runtime.active?.phase ?? boss.phase) !== phase) break;
+    if ((isBoss ? boss.phase : runtime.active?.phase) !== phase) break;
   }
 };
 el("reset").onclick = reset;

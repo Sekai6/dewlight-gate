@@ -1,3 +1,4 @@
+import { IMPULSIVE } from "../actions.ts";
 import { clamp } from "../core.ts";
 export interface ImpulseDefinition {
   gain: number;
@@ -73,28 +74,15 @@ export class ImpulseController {
     this.strength = 0;
     this.events = 0;
   }
-  update(input: ImpulseInput, kind: string) {
+  /** `gain` scales the whole chain for heavier or lighter bodies. */
+  update(input: ImpulseInput, gain = 1) {
     const previous = this.last,
       dt = previous ? clamp(input.clock - previous.clock, 0, 0.25) : 0;
     if (previous && dt === 0) return this.output;
     const identity =
       input.instance ??
       `${input.action}:${(input.clock - input.age).toFixed(4)}`;
-    const transient = [
-      "skill-branch",
-      "skill-rise",
-      "skill-bloom",
-      "crystal",
-      "garden",
-      "radiance",
-      "slash",
-      "rising-slash",
-      "air-slash",
-      "dash",
-      "strike",
-      "slam",
-      "hurt",
-    ].includes(input.action);
+    const transient = IMPULSIVE.has(input.action);
     if (
       transient &&
       identity !== this.identity &&
@@ -140,14 +128,6 @@ export class ImpulseController {
           age < 0
             ? 0
             : Math.sin(Math.min(age / 0.16, 1) * Math.PI) * Math.exp(-age * 5);
-        const gain =
-          kind === "guardian"
-            ? 1.15
-            : kind === "moss"
-              ? 1.1
-              : kind === "moth"
-                ? 0.65
-                : 1;
         const target = input.doll?.active
           ? 0
           : (pulse * this.strength + acceleration * 0.45) * config.gain * gain;

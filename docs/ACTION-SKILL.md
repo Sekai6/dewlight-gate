@@ -68,24 +68,3 @@ Q、R 分别从 0.26／0.30 秒开始接下一技能。最后一个有效技能�
 三技从开局具备。庭院光影可反复练习，通过暂停页跳过或重开，不产生玻璃珠、击败奖励或收集 ID。练完三技只保存教学完成布尔标记。
 
 存档沿用 v2 格式，新增可选 `difficulty` 与 `skillTutorial`，旧存档默认普通且未完成教学。活跃技能、浮空、冷却、投射物和危险区不写入存档。死亡、传送和重置清空技能状态；刷新从既有安全位置继续，战斗资源恢复。
-
-## 复现与材料
-
-```powershell
-npm.cmd test
-npx.cmd playwright test
-npm.cmd run format:check
-npm.cmd run build
-# 基线服务：另一个终端
-npx.cmd vite artifacts/action-skill/baseline --host 127.0.0.1 --port 5181
-# 性能不得与测试或录像同时执行
-node scripts/action-skill-performance.mjs
-# 固定输入素材
-node scripts/action-skill-review.mjs
-$env:ACTION_A_VARIANT='before'; $env:PLAY_URL='http://127.0.0.1:5181'
-node scripts/action-skill-review.mjs
-Remove-Item Env:ACTION_A_VARIANT, Env:PLAY_URL
-node scripts/action-skill-report.mjs
-```
-
-基线清单与 SHA256：`artifacts/action-skill/baseline.json`。本地素材和报告在忽略目录 `artifacts/action-skill/`；不纳入本轮提交。最终数值、限制和视觉确认状态见验收报告。自动几何检查不能替代用户对正常速度和慢放效果的确认。

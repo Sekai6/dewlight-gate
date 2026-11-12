@@ -1,5 +1,6 @@
 import type { ContactController } from "../contact/controller.ts";
-import { clamp, solveIK } from "../core.ts";
+import { clamp } from "../core.ts";
+import { limbError, solveLimb, type LimbSolution } from "../ik.ts";
 export interface DollPoint {
   x: number;
   y: number;
@@ -41,7 +42,7 @@ export class DollPoseSolver {
     dt: number,
     weight: number,
     floor: number,
-    out: { jointX: number; jointY: number; x: number; y: number },
+    out: LimbSolution,
     contacts?: ContactController,
   ) {
     const p = this.output.points[index];
@@ -86,20 +87,15 @@ export class DollPoseSolver {
       },
       dt,
     );
-    const ik = result
-      ? {
-          knee: { x: result.jointX, y: result.jointY },
-          foot: { x: result.x, y: result.y },
-        }
-      : solveIK(anchorX, anchorY, x, y, upper, lower, bend);
-    out.jointX = ik.knee.x;
-    out.jointY = ik.knee.y;
-    out.x = ik.foot.x;
-    out.y = ik.foot.y;
+    if (result) {
+      out.jointX = result.jointX;
+      out.jointY = result.jointY;
+      out.x = result.x;
+      out.y = result.y;
+    } else solveLimb(anchorX, anchorY, x, y, upper, lower, bend, out);
     this.output.error = Math.max(
       this.output.error,
-      Math.abs(Math.hypot(out.jointX - anchorX, out.jointY - anchorY) - upper),
-      Math.abs(Math.hypot(out.x - out.jointX, out.y - out.jointY) - lower),
+      limbError(anchorX, anchorY, out, upper, lower),
     );
     return out;
   }

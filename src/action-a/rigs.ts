@@ -1,43 +1,8 @@
 import type { Bone, Clip, Track } from "./core";
 import type { SupportProfile } from "./balance";
 import { skillClip } from "./skill-clips.ts";
+import { ATTACKS, LOOPING, TIMING, type Action } from "./actions.ts";
 export type ActorKind = "hero" | "moss" | "moth" | "guardian";
-export const ACTIONS = [
-  "skill-branch",
-  "skill-rise",
-  "skill-bloom",
-  "crystal-warn",
-  "crystal",
-  "garden-warn",
-  "garden",
-  "radiance-warn",
-  "radiance",
-  "idle",
-  "walk",
-  "run",
-  "start",
-  "brake",
-  "turn",
-  "launch",
-  "rise",
-  "apex",
-  "fall",
-  "land",
-  "slash",
-  "rising-slash",
-  "air-slash",
-  "dash",
-  "bind",
-  "hurt",
-  "defeat",
-  "windup",
-  "strike",
-  "recover",
-  "bound",
-  "slam-warn",
-  "slam",
-] as const;
-export type Action = (typeof ACTIONS)[number];
 export interface RigDefinition {
   support: SupportProfile;
   bob: number;
@@ -50,6 +15,40 @@ export interface RigDefinition {
   footSpan: number;
   stride: number;
   stance: number;
+  /** Rigid arm segment lengths, read from the bone rest offsets. */
+  arms: { front: ArmLengths; back: ArmLengths };
+  /** Leg sprites: segment width, joint diameters and the foot. */
+  legSkin: {
+    width: number;
+    /** Shin width at rest; a solved leg draws both segments at `width`. */
+    shin: number;
+    knee: number;
+    ankle: number;
+    footWidth: number;
+    footHeight: number;
+  };
+  /** Half-size of the square that always contains the drawn rig. */
+  extent: number;
+  /** Never touches the ground: always airborne, wing-driven body motion. */
+  flying: boolean;
+  /** Has a weapon arm: grip IK, sword trail, masked combat, hit ragdoll, recovery. */
+  armed: boolean;
+  motion: {
+    /** Use the driver's velocity as is; otherwise derive it from displacement. */
+    trustVelocity: boolean;
+    /** Speed at which the procedural gait reaches full amplitude. */
+    runSpeed: number;
+    /** Speed and amplitude of the unarmed walkers' hip sway. */
+    swaySpeed: number;
+    swayAmount: number;
+    landDip: number;
+    capeRate: number;
+    ornamentRate: number;
+    shadowWidth: number;
+    impulseGain: number;
+    /** Head and chest attention limits in degrees. */
+    attention: readonly [number, number];
+  };
   skin: {
     bone: string;
     texture: string;
@@ -58,6 +57,10 @@ export interface RigDefinition {
     originY?: number;
     depth?: number;
   }[];
+}
+export interface ArmLengths {
+  upper: number;
+  lower: number;
 }
 export type Rig = RigDefinition;
 export function createRig(kind: ActorKind): RigDefinition {
@@ -266,6 +269,8 @@ export function createRig(kind: ActorKind): RigDefinition {
       depth,
     });
   }
+  const rest = (name: string) =>
+    bones.find((b) => b.name === name)?.rest.y ?? 0;
   return {
     support: {
       enabled: !moth,
@@ -285,6 +290,33 @@ export function createRig(kind: ActorKind): RigDefinition {
     footSpan: boss ? 29 : hero ? 7 : 12,
     stride: boss ? 105 : hero ? 74 : 46,
     stance: hero ? 0.6 : 0.66,
+    arms: {
+      front: { upper: rest("fore"), lower: rest("weapon") },
+      back: { upper: rest("foreBack"), lower: rest("lamp") },
+    },
+    legSkin: {
+      width: boss ? 15 : 7,
+      shin: boss ? 12 : 6,
+      knee: boss ? 18 : 8,
+      ankle: boss ? 14 : 7,
+      footWidth: boss ? 29 : hero ? 14 : 16,
+      footHeight: boss ? 17 : 10,
+    },
+    extent: boss ? 256 : 128,
+    flying: moth,
+    armed: hero,
+    motion: {
+      trustVelocity: hero,
+      runSpeed: boss ? 460 : 264,
+      swaySpeed: boss ? 150 : 100,
+      swayAmount: boss ? 1.8 : 0.8,
+      landDip: boss ? 8 : 5,
+      capeRate: boss ? 8 : 13,
+      ornamentRate: boss ? 7 : 11,
+      shadowWidth: boss ? 100 : 32,
+      impulseGain: boss ? 1.15 : hero ? 1 : moth ? 0.65 : 1.1,
+      attention: boss ? [10, 4] : hero ? [18, 6] : moth ? [20, 8] : [12, 5],
+    },
   };
 }
 const track = (
@@ -314,31 +346,29 @@ export function getClip(rig: Rig, action: Action): Clip {
   const hero = rig.kind === "hero",
     boss = rig.kind === "guardian";
   const durations: Partial<Record<Action, number>> = {
-    slash: 0.38,
-    "rising-slash": 0.38,
-    "air-slash": 0.38,
-    dash: 0.19,
-    bind: 0.45,
-    hurt: hero ? 0.24 : 0.2,
-    defeat: 0.65,
-    turn: 0.16,
-    brake: 0.18,
-    start: 0.16,
-    launch: 0.16,
-    land: 0.22,
+    slash: TIMING.attack,
+    "rising-slash": TIMING.attack,
+    "air-slash": TIMING.attack,
+    dash: TIMING.dash,
+    bind: TIMING.bind,
+    hurt: hero ? TIMING.hurtHero : TIMING.hurt,
+    defeat: TIMING.defeat,
+    turn: TIMING.turn,
+    brake: TIMING.brake,
+    start: TIMING.start,
+    launch: TIMING.launch,
+    land: TIMING.land,
     windup: rig.kind === "moth" ? 0.85 : boss ? 0.95 : 0.7,
     strike: boss ? 1.15 : 0.22,
-    recover: 0.45,
-    "slam-warn": 1.05,
+    recover: TIMING.recover,
+    "slam-warn": TIMING.slamWarn,
     slam: boss ? 0.22 : 0.35,
   };
   const d = durations[action] ?? 1;
   const clip: Clip = {
     name: key,
     duration: d,
-    loop: ["idle", "walk", "run", "rise", "apex", "fall", "bound"].includes(
-      action,
-    ),
+    loop: LOOPING.has(action),
     tracks: [],
     transition:
       action === "hurt"
@@ -357,7 +387,7 @@ export function getClip(rig: Rig, action: Action): Clip {
   };
   const add = (bone: string, channel: Track["channel"], values: number[]) =>
     clip.tracks.push(track(bone, channel, d, values));
-  if (["slash", "rising-slash", "air-slash"].includes(action)) {
+  if (ATTACKS.has(action)) {
     // Pose keys at 0 / .06 / .085 (damage) / .16 / .27 / .38 seconds.
     const up = action === "rising-slash";
     const times = [0, 0.06, 0.075, 0.085, 0.16, 0.27, 0.38];

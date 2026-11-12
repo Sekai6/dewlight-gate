@@ -19,4 +19,4 @@
 - 旧版没有 Q/R/F、新招及挑战难度，对照保留旧版真实行为。录像定位场景并保护生命，用于动作观察；完整通关由浏览器回归另行验证。
 - 动作观感请结合正常与慢放录像评估。仅支持桌面键盘；WebGPU 不可用时回退 Canvas；Phaser 主包仍较大。
 
-详见 [技能架构](ACTION-SKILL.md) 与 [验收记录](ACTION-SKILL-ACCEPTANCE.md)。
+详见 [技能架构](ACTION-SKILL.md)。

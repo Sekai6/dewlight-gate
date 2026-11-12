@@ -1,15 +1,17 @@
 import { clamp, sampleTrack, type Track, type BoneMask } from "./core.ts";
-import type { Action } from "./rigs";
+import { SKILL_DURATION, TIMING, type Action } from "./actions.ts";
 
 export interface CombatMotionDefinition {
-  duration?: number;
+  duration: number;
+  /** Clip-time window in which the blade leaves a trail. */
+  trail: readonly [number, number];
   gripX: Track;
   gripY: Track;
   blade: Track;
   contact: number;
   airborne: { gripX: number; gripY: number; counter: number };
 }
-const times = [0, 0.055, 0.085, 0.145, 0.25, 0.38];
+const times = [0, 0.055, 0.085, 0.145, 0.25, TIMING.attack];
 function curve(
   values: number[],
   bone: string,
@@ -30,6 +32,8 @@ function curve(
   };
 }
 const definition = (up: boolean): CombatMotionDefinition => ({
+  duration: TIMING.attack,
+  trail: [0.06, 0.24],
   gripX: curve(
     up ? [6, 2, 23, 13, 8, 6] : [6, -2, 25, 25, 13, 6],
     "weapon",
@@ -57,19 +61,22 @@ export const COMBAT_MOTIONS = {
   "rising-slash": definition(true),
   "air-slash": definition(false),
   "skill-branch": skillMotion(
-    [0, 0.07, 0.1, 0.17, 0.26, 0.38],
+    [0, 0.07, 0.1, 0.17, 0.26, SKILL_DURATION.branch],
+    [0.09, 0.26],
     [6, -5, 20, 21, 12, 6],
     [19, 2, 3, 8, 20, 19],
     [0.4, -1.4, 0.2, 1.7, 2.5, 0.4],
   ),
   "skill-rise": skillMotion(
-    [0, 0.09, 0.14, 0.23, 0.34, 0.5],
+    [0, 0.09, 0.14, 0.23, 0.34, SKILL_DURATION.rise],
+    [0.12, 0.34],
     [6, 4, 20, 7, 10, 6],
     [19, 21, 0, -20, -10, 19],
     [0.4, 2.3, 0.5, -1.8, -2.5, 0.4],
   ),
   "skill-bloom": skillMotion(
-    [0, 0.08, 0.14, 0.22, 0.3, 0.38, 0.46, 0.57, 0.76],
+    [0, 0.08, 0.14, 0.22, 0.3, 0.38, 0.46, 0.57, SKILL_DURATION.bloom],
+    [0.12, 0.53],
     [6, 2, 21, -4, 21, -4, 21, 11, 6],
     [19, 5, 1, -18, 1, -18, 1, 16, 19],
     [0.4, -1.4, 1.1, 4.2, 7.4, 10.5, 13.7, 15.6, 13],
@@ -77,6 +84,7 @@ export const COMBAT_MOTIONS = {
 };
 function skillMotion(
   ts: number[],
+  trail: readonly [number, number],
   xs: number[],
   ys: number[],
   angles: number[],
@@ -99,6 +107,7 @@ function skillMotion(
     gripY: make(ys, "y"),
     blade: make(angles, "rotation"),
     duration: ts[ts.length - 1],
+    trail,
     contact: ts[2],
     airborne: { gripX: -1, gripY: -2, counter: 0.2 },
   };
@@ -115,8 +124,7 @@ export function sampleWeapon(
   out.x = sampleTrack(motion.gripX, age);
   out.y = sampleTrack(motion.gripY, age);
   out.rotation = sampleTrack(motion.blade, age);
-  const envelope =
-    Math.sin(clamp(age / (motion.duration ?? 0.38)) * Math.PI) * airWeight;
+  const envelope = Math.sin(clamp(age / motion.duration) * Math.PI) * airWeight;
   out.x += motion.airborne.gripX * envelope;
   out.y += motion.airborne.gripY * envelope;
   return out;
@@ -135,9 +143,13 @@ export function combatMask(
 ): BoneMask {
   // Each skill has its own phase envelope and pelvis/counter-arm participation.
   const skillDuration =
-    action === "skill-rise" ? 0.5 : action === "skill-bloom" ? 0.76 : 0.38;
+    action === "skill-rise"
+      ? SKILL_DURATION.rise
+      : action === "skill-bloom"
+        ? SKILL_DURATION.bloom
+        : SKILL_DURATION.branch;
   const sampleAge = action.startsWith("skill-")
-    ? (age * 0.38) / skillDuration
+    ? (age * TIMING.attack) / skillDuration
     : age;
   const pulse = (delay: number) =>
     Math.sin(clamp((sampleAge - delay) / 0.29) * Math.PI);
