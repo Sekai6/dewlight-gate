@@ -1,8 +1,40 @@
 // The first guardian is a short duel: read the crown, dodge, punish recovery.
 // All deadlines use game time, so menus and browser blur freeze the encounter.
-import type { HitContext } from "./action-a/doll-hit/state";
-import { DIFFICULTIES } from "./action-skill/config.ts";
-import type { Difficulty } from "./action-skill/types";
+import type { HitContext } from "@dewlight/action-a";
+
+export type Difficulty = "normal" | "challenge";
+export interface DifficultyProfile {
+  id: Difficulty;
+  hp: number;
+  warningScale: number;
+  recovery: number;
+  comboGap: number;
+}
+export const DIFFICULTIES: Record<string, DifficultyProfile> = {
+  normal: {
+    id: "normal",
+    hp: 48,
+    warningScale: 1,
+    recovery: 1.6,
+    comboGap: 0.45,
+  },
+  challenge: {
+    id: "challenge",
+    hp: 64,
+    warningScale: 0.8,
+    recovery: 1.2,
+    comboGap: 0.45,
+  },
+};
+/** How far a telegraph has progressed, 0..1. */
+export function warningProgress(now: number, start: number, at: number) {
+  return at <= start
+    ? 1
+    : Math.max(0, Math.min(1, (now - start) / (at - start)));
+}
+export function projectileAngle(vx: number, vy: number) {
+  return Math.atan2(vy, vx);
+}
 export type BossPhase =
   | "sleep"
   | "intro"

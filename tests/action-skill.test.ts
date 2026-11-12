@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SkillRuntime } from "../src/action-skill/runtime.ts";
-import { SKILLS, SKILL_IDS } from "../src/action-skill/config.ts";
+import { SkillRuntime } from "@dewlight/action-skill";
+import { SKILLS, SKILL_IDS } from "../src/content/skills.ts";
 import {
   createGuardian,
   stepGuardian,
@@ -10,15 +10,12 @@ import {
   GUARDIAN,
 } from "../src/boss.ts";
 import { fresh, parseSave } from "../src/state.ts";
-import {
-  combatMask,
-  combatMotion,
-  sampleWeapon,
-} from "../src/action-a/combat-motion.ts";
-import { skillContains } from "../src/action-skill/query.ts";
+import { combatMask, combatMotion } from "../src/content/combat-motion.ts";
+import { sampleWeapon } from "@dewlight/action-a";
+import { skillContains } from "@dewlight/action-skill";
 const input = { energy: 100, grounded: false, facing: 1 };
 test("skills pay once, reject invalid requests and freeze at zero simulation time", () => {
-  const s = new SkillRuntime();
+  const s = new SkillRuntime(SKILLS);
   assert.equal(s.request("bloom", { ...input, grounded: true }), false);
   assert.equal(s.request("rise", { ...input, energy: 24 }), false);
   assert.equal(s.request("branch", input), true);
@@ -35,7 +32,7 @@ test("complete crossed intervals retain all hits, exact displacement and stable 
   for (const id of SKILL_IDS) {
     const results = [];
     for (const fps of [10, 20, 60, 120]) {
-      const s = new SkillRuntime();
+      const s = new SkillRuntime(SKILLS);
       s.request(id, input);
       let dx = 0,
         cost = 0,
@@ -66,7 +63,7 @@ test("complete crossed intervals retain all hits, exact displacement and stable 
   }
 });
 test("latest valid buffered skill links after release; cancellation keeps cost and cooldown", () => {
-  const s = new SkillRuntime();
+  const s = new SkillRuntime(SKILLS);
   s.request("branch", input);
   s.tick(0.18, input);
   assert.equal(s.allows("attack"), false);
@@ -84,7 +81,7 @@ test("latest valid buffered skill links after release; cancellation keeps cost a
   assert.equal(s.cooldowns.bloom, 0);
 });
 test("rise cannot repeat in air; grounding restores the aerial allowance", () => {
-  const s = new SkillRuntime();
+  const s = new SkillRuntime(SKILLS);
   s.request("rise", input);
   s.tick(6, input);
   assert.equal(s.request("rise", input), false);
@@ -92,7 +89,7 @@ test("rise cannot repeat in air; grounding restores the aerial allowance", () =>
   assert.equal(s.request("rise", input), true);
 });
 test("hit identity is section and target specific; interruptions clear queued inputs", () => {
-  const s = new SkillRuntime();
+  const s = new SkillRuntime(SKILLS);
   s.request("bloom", input);
   const r = s.tick(0.5, input);
   const hits = r.hits;
@@ -202,7 +199,7 @@ test("root-space skill query locks its direction and bloom reaches both sides", 
     false,
   );
   assert.equal(
-    skillContains({ ...hit, skill: "bloom" }, root, {
+    skillContains({ ...hit, skill: "bloom", bothSides: true }, root, {
       id: "right",
       x: 180,
       y: 200,
@@ -214,7 +211,7 @@ test("root-space skill query locks its direction and bloom reaches both sides", 
 
 test("gravity reduction integrates exactly 0.48 seconds, including partial substeps", () => {
   for (const fps of [10, 20, 60, 120]) {
-    const runtime = new SkillRuntime();
+    const runtime = new SkillRuntime(SKILLS);
     runtime.request("bloom", input);
     let reduction = 0;
     for (let i = 0; i < fps; i++)

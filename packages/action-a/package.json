@@ -1,0 +1,34 @@
+{
+  "name": "@dewlight/action-a",
+  "version": "0.1.0",
+  "description": "Layered procedural skeletal animation for 2D action characters: clips, IK limbs, balance, hit ragdoll.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./phaser": {
+      "types": "./src/phaser/index.ts",
+      "default": "./src/phaser/index.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "phaser": "^3.90.0"
+  },
+  "peerDependenciesMeta": {
+    "phaser": {
+      "optional": true
+    }
+  }
+}

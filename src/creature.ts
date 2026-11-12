@@ -1,4 +1,4 @@
-import { DollHitController } from "./action-a/doll-hit/state.ts";
+import { DollHitController } from "@dewlight/action-a";
 
 export type CreaturePhase = "patrol" | "windup" | "strike" | "recover";
 /** A defeated creature's body, knocked away and left to settle. Visual only. */

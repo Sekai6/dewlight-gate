@@ -27,12 +27,12 @@ npm run dev
 
 ## 模块结构
 
-- `src/action-a/doll-hit/state.ts`：`HitContext`、`DollHitProfile`、`DollHitState`、统一冲量配置及状态机。状态依次经过冲击、空中失衡、接触弹跳、翻滚、起身；受身可提前退出。
-- `src/action-a/doll-hit/solver.ts`：`DollPose` 与四个复用惯性端点。以最多 1/120 秒子步积分，经关节方向锥和双段 IK 约束保持骨段长度。
-- `src/action-a/actor.ts`：从上次最终姿态进入，旋转身体、求解四肢、保持剑身刚性和握柄绑定，对支撑面进行整体抬升修正，最后提交既有 Canvas 合成。退出清空惯性端点、脚部锚点和旧刀光。
+- `packages/action-a/src/doll-hit/state.ts`：`HitContext`、`DollHitProfile`、`DollHitState`、统一冲量配置及状态机。状态依次经过冲击、空中失衡、接触弹跳、翻滚、起身；受身可提前退出。
+- `packages/action-a/src/doll-hit/solver.ts`：`DollPose` 与四个复用惯性端点。以最多 1/120 秒子步积分，经关节方向锥和双段 IK 约束保持骨段长度。
+- `packages/action-a/src/stages/doll.ts`：从上次最终姿态进入，旋转身体、求解四肢、保持剑身刚性和握柄绑定，对支撑面进行整体抬升修正，最后提交既有 Canvas 合成。退出清空惯性端点、脚部锚点和旧刀光。
 - `src/main.ts`：负责扣血、120 Hz 根部运动、平台跨步接触、竞技场边界、输入消费和检查点恢复。伤害通过保护检查后才创建实例；倒地不会再次扣血。未恢复期间延续保护。
 - `src/boss.ts`：原布尔命中结果保留，附带冲锋 / 根浪方向及命中实例。普通敌人由原类型映射。
-- `src/action-a/preview.ts`：开发预览；生产分支不加载预览。展示阶段、速度、弹跳、受身窗口、约束误差及既有骨骼诊断。
+- `src/preview-action-a.ts`：开发预览；生产分支不加载预览。展示阶段、速度、弹跳、受身窗口、约束误差及既有骨骼诊断。
 
 模拟暂停会冻结状态；传送、重生和重新开始清空实例。状态不序列化，旧存档不需要迁移。致命伤及坠落仍立即执行既有安全恢复。
 

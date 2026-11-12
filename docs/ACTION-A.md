@@ -16,7 +16,7 @@ npm run dev
 
 ## 核心与数据流
 
-`src/action-a/` 分为可独立测试的 `core.ts`、骨架与动作数据 `rigs.ts`、共享分层素材 `skin.ts`、Phaser 渲染适配 `actor.ts`、游戏状态适配 `drivers.ts` 和开发预览模块。
+引擎位于 `packages/action-a/`（核心无渲染依赖，`phaser/` 为 Phaser 适配层），按管线阶段拆分在 `src/stages/`。游戏内容位于 `src/content/`：四个角色的骨架与动作片段 `rigs.ts`、程序化贴图 `skin.ts`、动作特征 `actions.ts`、主角握剑曲线 `combat-motion.ts`。游戏状态适配在 `src/action-drivers.ts`，开发预览在 `src/preview-action-a.ts`。
 
 1. 游戏物理和战斗逻辑仍负责移动、判定、攻击时点、资源与存档。驱动器读取速度、朝向、落地、受伤及攻击阶段，输出 `ActorInput`。
 2. `Animator` 采样 `Clip` 的关键帧 `Track`，产生局部 `Pose`。普通旋转走最短弧；作者指定的 `unwrapped` 轨道保留多圈转向，用于挥剑。新状态从当前已混合姿态继续过渡，默认 85 ms。

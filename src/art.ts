@@ -13,9 +13,10 @@ import {
   paintDreamForest,
   paintDreamSprouts,
 } from "./dreamscape";
-import { ActionActor } from "./action-a/actor";
+import type { PhaserActor as ActionActor } from "@dewlight/action-a/phaser";
+import { createActor } from "./content/actors.ts";
 import { heroAction } from "./action-drivers";
-import type { DollHitState } from "./action-a/doll-hit/state";
+import type { DollHitState } from "@dewlight/action-a";
 import type { Platform } from "./level";
 import { stones } from "./level";
 import { sanctuaryTexture } from "./sanctuary";
@@ -645,8 +646,8 @@ function paintGate(c: C) {
 }
 
 export interface HeroPose {
-  skillPose?: import("./action-skill/types").SkillPose;
-  intentTarget?: import("./action-a/intent/controller").IntentTarget;
+  skillPose?: import("./content/skills.ts").SkillPose;
+  intentTarget?: import("@dewlight/action-a").IntentTarget;
   dollPose?: Readonly<DollHitState> | null;
   dollFloor?: number;
   support?: {
@@ -767,8 +768,8 @@ export class ArtDirector {
           .setDepth(-2),
       );
     });
-    this.actor = new ActionActor(scene, "hero", 6);
-    this.fallen = new ActionActor(scene, "hero", 5.9, false);
+    this.actor = createActor(scene, "hero", 6);
+    this.fallen = createActor(scene, "hero", 5.9, false);
     this.fallen.setVisible(false);
     this.lantern = scene.add
       .image(0, 0, "soft-light")
@@ -910,7 +911,7 @@ export class ArtDirector {
         vx: 0,
         grounded: true,
       });
-      this.actor.container.setPosition(x + 95, y).setScale(1.44);
+      this.actor.view.container.setPosition(x + 95, y).setScale(1.44);
       this.lantern.setPosition(x + 80, y - 22).setScale(0.75);
       this.halo.setPosition(x + 95, y - 35).setScale(1.4);
       const ledge = this.ledges[0];

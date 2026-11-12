@@ -1,9 +1,10 @@
-import { ActionActor } from "./action-a/actor";
+import type { PhaserActor as ActionActor } from "@dewlight/action-a/phaser";
+import { createActor } from "./content/actors.ts";
 import { guardianAction } from "./action-drivers";
 import Phaser from "phaser";
 import type { DewGuardian } from "./boss";
 import { GUARDIAN } from "./boss";
-import { projectileAngle, warningProgress } from "./action-skill/presentation";
+import { projectileAngle, warningProgress } from "./boss";
 
 export class GuardianArt {
   readonly actor: ActionActor;
@@ -11,7 +12,7 @@ export class GuardianArt {
   private title: Phaser.GameObjects.Text;
   private hit: Phaser.GameObjects.Text;
   constructor(scene: Phaser.Scene) {
-    this.actor = new ActionActor(scene, "guardian", 5.6);
+    this.actor = createActor(scene, "guardian", 5.6);
     this.g = scene.add.graphics().setDepth(5.6);
     this.title = scene.add
       .text(0, 0, "", {
@@ -40,7 +41,7 @@ export class GuardianArt {
     time: number,
     visible: boolean,
     reduced: boolean,
-    target?: import("./action-a/intent/controller").IntentTarget,
+    target?: import("@dewlight/action-a").IntentTarget,
   ) {
     const g = this.g;
     g.clear();

@@ -16,7 +16,7 @@ npm.cmd run dev
 
 ## 固定参数
 
-权威配置位于 `src/action-skill/config.ts`。
+权威配置位于 `src/content/skills.ts`。
 
 | 技能 | 按键 | 光能 | 冷却 | 总时长 | 伤害／运动 |
 | --- | --- | --- | --- | --- | --- |
@@ -32,14 +32,14 @@ Q、R 分别从 0.26／0.30 秒开始接下一技能。最后一个有效技能�
 
 | 文件／模块 | 职责 |
 | --- | --- |
-| `action-skill/types.ts` | 定义、实例、输入、事件、命中请求、快照、难度和动画姿态类型 |
-| `action-skill/config.ts` | 技能资源、阶段、运动、伤害窗口和双难度参数 |
-| `action-skill/runtime.ts` | 纯 TypeScript 120 Hz 技能运行与仲裁；阶段跨越、输入缓冲、冷却与命中去重 |
-| `action-skill/query.ts` | 独立于 Phaser 和动画的根部空间命中范围查询 |
-| `action-skill/art.ts` | 单 Graphics 对象与 18 槽固定事件环；折射拖带、升锋藤线、回旋花瓣 |
-| `action-skill/preview.ts` | 仅开发模式加载的技能实验室 |
-| `action-a/skill-clips.ts` | 三种主控技能及三种守卫新招的专用分层动作 |
-| `action-a/combat-motion.ts` | Hermite 握柄及刚性剑身曲线，通过 CONTACT 求解双段手臂 |
+| `packages/action-skill/src/types.ts` | 定义、实例、输入、事件、命中请求、快照、难度和动画姿态类型 |
+| `src/content/skills.ts` | 技能资源、阶段、运动、伤害窗口（难度参数在 `boss.ts`） |
+| `packages/action-skill/src/runtime.ts` | 纯 TypeScript 120 Hz 技能运行与仲裁；阶段跨越、输入缓冲、冷却与命中去重 |
+| `packages/action-skill/src/query.ts` | 独立于 Phaser 和动画的根部空间命中范围查询 |
+| `src/skill-art.ts` | 单 Graphics 对象与 18 槽固定事件环；折射拖带、升锋藤线、回旋花瓣 |
+| `src/preview-action-skill.ts` | 仅开发模式加载的技能实验室 |
+| `src/content/skill-clips.ts` | 三种主控技能及三种守卫新招的专用分层动作 |
+| `src/content/combat-motion.ts` | Hermite 握柄及刚性剑身曲线，通过 CONTACT 求解双段手臂 |
 | `boss.ts` | 预警锁定、投射物扫掠、危险区、普通／挑战招式顺序和取消清理 |
 | `main.ts` | 真正位移、平台／门／守卫碰撞、生命资源、奖励和存档 |
 
