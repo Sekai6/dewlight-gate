@@ -9,6 +9,10 @@ export interface DifficultyProfile {
   warningScale: number;
   recovery: number;
   comboGap: number;
+  /** How strongly move choice leans on the player's habits, 0..1. */
+  read: number;
+  /** Seconds of player movement the aim leads by. */
+  lead: number;
 }
 export const DIFFICULTIES: Record<string, DifficultyProfile> = {
   normal: {
@@ -17,6 +21,8 @@ export const DIFFICULTIES: Record<string, DifficultyProfile> = {
     warningScale: 1,
     recovery: 1.6,
     comboGap: 0.45,
+    read: 0.35,
+    lead: 0.1,
   },
   challenge: {
     id: "challenge",
@@ -24,6 +30,8 @@ export const DIFFICULTIES: Record<string, DifficultyProfile> = {
     warningScale: 0.8,
     recovery: 1.2,
     comboGap: 0.45,
+    read: 1,
+    lead: 0.28,
   },
 };
 /** How far a telegraph has progressed, 0..1. */
@@ -53,6 +61,80 @@ export type BossPhase =
   | "recover"
   | "bound"
   | "defeated";
+export type BossMove = "charge" | "slam" | "crystal" | "garden" | "radiance";
+/** What the guardian can know about the player. */
+export interface GuardianTarget {
+  x: number;
+  y: number;
+  vx?: number;
+  onGround?: boolean;
+}
+/** How the player has been answering telegraphs lately; each fades with time. */
+export interface PlayerHabit {
+  jump: number;
+  /** Crossed to the guardian's other side. */
+  through: number;
+  retreat: number;
+  stay: number;
+}
+/** The distance the guardian wants before starting each move. */
+const IDEAL: Record<BossMove, number> = {
+  charge: 260,
+  slam: 110,
+  crystal: 300,
+  garden: 200,
+  radiance: 200,
+};
+/** Repeatable 0..1 noise so equal fights do not play out identically. */
+function noise(b: DewGuardian, n: number) {
+  const v = Math.sin((b.attacks + 1) * 12.9898 + b.hp * 78.233 + n * 37.719);
+  return v * 43758.5453 - Math.floor(v * 43758.5453);
+}
+/** Pick the next move from the situation: distance, whether the player is in
+ *  the air or against a wall, what was just used, and what the player tends
+ *  to do. Telegraphs and damage are untouched; only the choice is smarter. */
+export function chooseMove(b: DewGuardian, player: GuardianTarget): BossMove {
+  // The duel always opens with the charge it teaches.
+  if (!b.attacks) return "charge";
+  const moves: BossMove[] =
+    b.hp <= b.maxHp / 2
+      ? ["charge", "garden", "slam", "radiance", "crystal"]
+      : ["charge", "slam", "crystal", "garden"];
+  const d = Math.abs(player.x - b.x),
+    air = player.onGround === false,
+    walled =
+      Math.min(player.x - GUARDIAN.left, GUARDIAN.right - player.x) < 140;
+  const h = b.habit,
+    w = DIFFICULTIES[b.difficulty].read;
+  const last = b.recent[b.recent.length - 1];
+  let best = moves[0],
+    bestScore = -Infinity;
+  moves.forEach((move, i) => {
+    // Never the same move twice in a row.
+    if (move === last) return;
+    // The more a move was used lately, the less tempting it is.
+    let score = noise(b, i) * 1.5;
+    for (const used of b.recent) if (used === move) score -= 1.4;
+    if (move === "charge")
+      score +=
+        (d > 200 ? 2 : d < 120 ? -1 : 0.5) -
+        (air ? 0.5 : 0) +
+        w * (h.retreat - 0.3 * h.jump);
+    else if (move === "slam")
+      score +=
+        (d < 170 ? 2 : 0) + w * (0.8 * h.stay + h.through - 0.8 * h.jump);
+    else if (move === "crystal")
+      score += (d > 260 ? 2 : d > 160 ? 0.8 : -0.5) + w * 0.8 * h.retreat;
+    else if (move === "garden")
+      score += 0.8 + (walled ? 1.2 : 0) + w * (h.stay + 0.5 * h.through);
+    else score += 0.6 + (air ? 1.5 : 0) + w * 1.2 * h.jump;
+    if (score > bestScore) {
+      best = move;
+      bestScore = score;
+    }
+  });
+  return best;
+}
 export interface DewGuardian {
   x: number;
   y: number;
@@ -61,6 +143,13 @@ export interface DewGuardian {
   difficulty: Difficulty;
   hazards: GuardianHazard[];
   nextCombo?: "crystal" | "garden" | "radiance";
+  /** The move it is positioning for. */
+  plan?: BossMove;
+  /** Moves used so far, oldest first. */
+  recent: BossMove[];
+  habit: PlayerHabit;
+  /** Where the player stood when the current telegraph began. */
+  read?: { x: number; side: number; jumped?: boolean };
   phase: BossPhase;
   until: number;
   facing: number;
@@ -101,6 +190,8 @@ export function createGuardian(
     maxHp: DIFFICULTIES[difficulty].hp,
     difficulty,
     hazards: [],
+    recent: [],
+    habit: { jump: 0, through: 0, retreat: 0, stay: 0 },
     phase: defeated ? "defeated" : "sleep",
     until: 0,
     facing: -1,
@@ -158,13 +249,40 @@ export function stepGuardian(
   b: DewGuardian,
   now: number,
   dt: number,
-  player: { x: number; y: number },
+  player: GuardianTarget,
 ): { damage: boolean; started: boolean; impact?: HitContext } {
   const change = (phase: BossPhase, duration: number) => {
     b.phase = phase;
     b.phaseAt = now;
     b.until = now + duration;
+    // While stalking it already knows what it will do and positions for it.
+    if (phase === "stalk") b.plan = chooseMove(b, player);
+    // A telegraph begins: remember where the player stood to read the answer.
+    if (phase.endsWith("warn"))
+      b.read = { x: player.x, side: player.x < b.x ? -1 : 1 };
   };
+  /** The telegraph is over: note how the player answered it. */
+  const learn = () => {
+    const from = b.read;
+    b.read = undefined;
+    if (!from) return;
+    const h = b.habit;
+    h.jump *= 0.7;
+    h.through *= 0.7;
+    h.retreat *= 0.7;
+    h.stay *= 0.7;
+    const side = player.x < b.x ? -1 : 1;
+    if (from.jumped || player.onGround === false) h.jump++;
+    else if (side !== from.side) h.through++;
+    else if ((player.x - from.x) * from.side > 80) h.retreat++;
+    else h.stay++;
+  };
+  // Aim a little ahead of a moving player. Locked once the telegraph starts.
+  const lead = Math.max(
+    -90,
+    Math.min(90, (player.vx ?? 0) * DIFFICULTIES[b.difficulty].lead),
+  );
+  const aim = player.x + lead;
   let damage = false,
     started = false;
   let impact: HitContext | undefined;
@@ -201,7 +319,7 @@ export function stepGuardian(
       // Fixed 70px zones separated by 170px gaps, never covering the entire floor.
       const center = Math.max(
         GUARDIAN.left + 240,
-        Math.min(GUARDIAN.right - 240, player.x),
+        Math.min(GUARDIAN.right - 240, aim),
       );
       for (let i = -1; i <= 1; i++)
         b.hazards.push({
@@ -220,10 +338,7 @@ export function stepGuardian(
       b.hazards.push({
         id,
         kind,
-        x: Math.max(
-          GUARDIAN.left + 45,
-          Math.min(GUARDIAN.right - 45, player.x),
-        ),
+        x: Math.max(GUARDIAN.left + 45, Math.min(GUARDIAN.right - 45, aim)),
         y: b.y,
         vx: 0,
         vy: 0,
@@ -234,6 +349,8 @@ export function stepGuardian(
       });
   };
   if (b.phase === "defeated") return { damage, started };
+  // A jump counts even if the player lands before the telegraph ends.
+  if (b.read && player.onGround === false) b.read.jumped = true;
   if (b.phase === "sleep") {
     if (
       player.x > GUARDIAN.left + 40 &&
@@ -332,7 +449,11 @@ export function stepGuardian(
   }
   if (b.phase === "stalk") {
     b.facing = player.x < b.x ? -1 : 1;
-    if (Math.abs(player.x - b.x) > 130) b.x += b.facing * 65 * dt;
+    // Close in, or give ground, toward the distance the planned move wants.
+    const ideal = IDEAL[b.plan ?? "slam"],
+      gap = Math.abs(player.x - b.x);
+    if (gap > ideal + 20) b.x += b.facing * 65 * dt;
+    else if (gap < ideal - 60) b.x -= b.facing * 40 * dt;
     b.x = Math.max(GUARDIAN.left + 45, Math.min(GUARDIAN.right - 45, b.x));
   }
   if (now >= b.until) {
@@ -340,11 +461,10 @@ export function stepGuardian(
       change("stalk", 0.85);
     } else if (b.phase === "stalk") {
       b.facing = player.x < b.x ? -1 : 1;
-      const pattern =
-        b.hp <= b.maxHp / 2
-          ? ["charge", "garden", "slam", "radiance", "crystal"]
-          : ["charge", "slam", "crystal", "garden"];
-      const next = pattern[b.attacks % pattern.length];
+      const next = b.plan ?? chooseMove(b, player);
+      b.plan = undefined;
+      b.recent.push(next);
+      if (b.recent.length > 4) b.recent.shift();
       if (["crystal", "garden", "radiance"].includes(next)) {
         if (b.difficulty === "challenge" && b.hp <= b.maxHp / 2)
           b.nextCombo = next === "garden" ? "crystal" : "garden";
@@ -354,15 +474,17 @@ export function stepGuardian(
       else {
         b.chargeEnd = Math.max(
           GUARDIAN.left + 55,
-          Math.min(GUARDIAN.right - 55, player.x + b.facing * 95),
+          Math.min(GUARDIAN.right - 55, aim + b.facing * 95),
         );
         change("warn", Math.max(0.8, 0.95 * profile.warningScale));
       }
     } else if (b.phase === "warn") {
+      learn();
       change("charge", 1.15);
       b.struck = false;
       b.attacks++;
     } else if (b.phase === "slam-warn") {
+      learn();
       change("slam", 0.22);
       b.attacks++;
       b.wave = [
@@ -374,8 +496,11 @@ export function stepGuardian(
     } else if (b.phase === "combo-gap") {
       const next = b.nextCombo!;
       b.nextCombo = undefined;
+      b.recent.push(next);
+      if (b.recent.length > 4) b.recent.shift();
       prepare(next);
     } else if (b.phase.endsWith("-warn")) {
+      learn();
       change(
         b.phase.replace("-warn", "") as BossPhase,
         b.phase === "garden-warn"

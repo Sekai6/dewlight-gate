@@ -38,6 +38,9 @@ export const ACTIONS = [
   "strike",
   "recover",
   "bound",
+  "alert",
+  "hop",
+  "pass",
   "slam-warn",
   "slam",
 ] as const;
@@ -67,6 +70,9 @@ export const COMBAT_ACTIONS = group(
   "windup",
   "strike",
   "recover",
+  "alert",
+  "hop",
+  "pass",
   "slam-warn",
   "slam",
 );
@@ -91,9 +97,15 @@ export const UPPER_BODY_COMBAT = group(
   "bind",
 );
 /** The root carries the body; feet neither plant nor step. */
-export const UNPLANTED = group("dash", "skill-branch", "defeat");
+export const UNPLANTED = group("dash", "skill-branch", "defeat", "hop");
 /** Travel does not advance the gait cycle. */
-export const GAIT_FROZEN = group("dash", "skill-branch", "defeat", "hurt");
+export const GAIT_FROZEN = group(
+  "dash",
+  "skill-branch",
+  "defeat",
+  "hurt",
+  "hop",
+);
 /** No stepping even while the root moves. */
 export const STEP_BLOCKED = group(
   "dash",
@@ -101,6 +113,7 @@ export const STEP_BLOCKED = group(
   "defeat",
   "hurt",
   "bound",
+  "hop",
 );
 /** Each new instance fires one body impulse. */
 export const IMPULSIVE = group(

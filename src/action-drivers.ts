@@ -1,6 +1,6 @@
 import { GUARDIAN } from "./boss";
 import type { HeroPose } from "./art";
-import type { Enemy } from "./creature";
+import { creatureTuning, type Enemy } from "./creature";
 import type { DewGuardian } from "./boss";
 import type { ActorInput } from "@dewlight/action-a";
 import { TIMING, type Action } from "./content/actions.ts";
@@ -85,20 +85,30 @@ export function creatureAction(
           ? 1
           : Math.min(1, Math.max(0, 1 - (clock - corpse.restAt - 0.25) / 0.4)),
     };
-  const action: Action =
+  const tune = creatureTuning(e);
+  // Pacing, chasing and backing off are all locomotion; the gait follows
+  // the real displacement.
+  const roaming =
+    e.phase === "patrol" || e.phase === "return" || e.phase === "engage";
+  const action: string =
     e.hp <= 0
       ? "defeat"
       : e.bound > clock
         ? "bound"
         : clock - e.hurtAt < TIMING.hurt
           ? "hurt"
-          : e.phase === "patrol"
+          : roaming
             ? "walk"
             : e.phase;
   const at =
     action === "defeat" ? e.diedAt : action === "hurt" ? e.hurtAt : e.phaseAt;
+  const left = e.edgeMin ?? e.minX,
+    right = e.edgeMax ?? e.maxX;
   return {
-    intentTarget: e.phase !== "patrol" && e.hp > 0 ? target : undefined,
+    intentTarget:
+      e.phase !== "patrol" && e.phase !== "return" && e.hp > 0
+        ? target
+        : undefined,
     lockedDirection:
       e.phase === "windup" || e.phase === "strike" ? e.attackDir : undefined,
     x: corpse?.x ?? e.x,
@@ -108,16 +118,11 @@ export function creatureAction(
     facing: e.dir,
     action,
     age: clock - at,
-    vx:
-      action === "walk"
-        ? e.dir * (e.type ? 32 : 24)
-        : action === "strike"
-          ? e.attackDir * (e.type ? 340 : 290)
-          : 0,
-    grounded: !e.type && e.liftVy === undefined,
-    support: e.type
+    vx: action === "strike" ? e.attackDir * tune.strikeSpeed : 0,
+    grounded: !tune.flying && e.liftVy === undefined && e.phase !== "hop",
+    support: tune.flying
       ? undefined
-      : { id: e.id, x: e.minX, y: e.floor, left: e.minX, right: e.maxX },
+      : { id: e.id, x: left, y: e.floor, left, right },
     hitDirection: e.hitDirection,
     reduced,
   };
